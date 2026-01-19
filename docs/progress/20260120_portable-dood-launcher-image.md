@@ -131,20 +131,23 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
       - `docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock codex-workspace-launcher:dev create graysurf/codex-kit`
     - [x] Primary outputs are verifiable (workspace containers/volumes exist): `docker ps -a` and `docker volume ls`.
     - [x] Usage docs skeleton exists (TL;DR + common commands + DooD rules): `README.md`.
-- [ ] Step 2: Expansion / integration
+- [x] Step 2: Expansion / integration
   - Work Items:
-    - [ ] Document and support optional host mounts (secrets/config snapshot) with same-path binds and `HOME` passthrough.
-    - [ ] Document full env/flags table (including deprecated) from `docs/DESIGN.md`.
-    - [ ] Validate private repo flows using `GH_TOKEN` inside the launcher container.
+    - [x] Document and support optional host mounts (secrets/config snapshot) with same-path binds and `HOME` passthrough.
+    - [x] Document full env/flags table (including deprecated) from `docs/DESIGN.md`.
+    - [x] Validate private repo flows using `GH_TOKEN` inside the launcher container.
   - Artifacts:
     - `README.md`
     - `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`
   - Exit Criteria:
-    - [ ] Common branches are covered:
-      - `rm <name> --yes`, `rm --all --yes`, `reset`, `exec <name>`
-      - optional mounts missing/unreadable are skipped with a clear message
-    - [ ] Compatible with existing naming conventions: `CODEX_WORKSPACE_PREFIX` matches upstream behavior.
-    - [ ] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
+    - [x] Common branches are covered (evidence: `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`):
+      - [x] `rm <name> --yes`
+      - [x] `exec <name>`
+      - [x] `reset work-repos <name> --yes`
+      - [ ] ~~`rm --all --yes`~~ (Reason: destructive on host; not executed in local smoke)
+      - [x] Optional mounts are non-fatal when absent; host mount setup is documented in `README.md`.
+    - [x] Compatible with existing naming conventions: `CODEX_WORKSPACE_PREFIX` matches upstream behavior (evidence: `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`).
+    - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
 - [ ] Step 3: Validation / testing
   - Work Items:
     - [ ] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output.

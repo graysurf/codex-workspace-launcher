@@ -18,6 +18,7 @@ RUN apt-get update \
     python3 \
     rsync \
     zsh \
+  && mkdir -p /root/.config \
   && rm -rf /var/lib/apt/lists/*
 
 COPY bin/codex-workspace /usr/local/bin/codex-workspace
