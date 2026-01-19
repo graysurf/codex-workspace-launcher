@@ -20,16 +20,19 @@ Use the provided `cws` wrapper (recommended):
 - bash: `source ./scripts/cws.bash`
 - executable: put `./scripts/cws` on your `PATH` (example: `cp ./scripts/cws ~/.local/bin/cws`)
 
-Without cloning:
+Without cloning (zsh):
 
 ```sh
 mkdir -p "$HOME/.config/codex-workspace-launcher"
-# zsh:
 curl -fsSL https://raw.githubusercontent.com/graysurf/codex-workspace-launcher/main/scripts/cws.zsh \
   -o "$HOME/.config/codex-workspace-launcher/cws.zsh"
 source "$HOME/.config/codex-workspace-launcher/cws.zsh"
+```
 
-# bash:
+Without cloning (bash):
+
+```sh
+mkdir -p "$HOME/.config/codex-workspace-launcher"
 curl -fsSL https://raw.githubusercontent.com/graysurf/codex-workspace-launcher/main/scripts/cws.bash \
   -o "$HOME/.config/codex-workspace-launcher/cws.bash"
 source "$HOME/.config/codex-workspace-launcher/cws.bash"
@@ -47,6 +50,8 @@ CWS_DOCKER_ARGS=(
 # Override the image tag
 CWS_IMAGE="graysurf/codex-workspace-launcher:latest"
 ```
+
+Want to build locally and use a custom image tag? See `docs/BUILD.md`.
 
 Create a workspace (public repo):
 
@@ -189,14 +194,7 @@ Low-level launcher (`codex-kit` script; invoked by the zsh layer):
 
 ## Development
 
-Local build:
-
-```sh
-docker build -t codex-workspace-launcher:dev \
-  --build-arg ZSH_KIT_REF=main \
-  --build-arg CODEX_KIT_REF=main \
-  .
-```
+Local builds (custom tags): `docs/BUILD.md`
 
 Publishing (CI):
 

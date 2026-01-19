@@ -13,7 +13,11 @@ Links:
 
 ## Addendum
 
-- None
+- 2026-01-20: Deferred remaining Step 3 validation evidence to an integration testing PR after merge.
+  - ~~Linux host smoke run + evidence log.~~
+    - Reason: requires a real Linux host with Docker; will be captured in the integration testing PR.
+  - ~~CI publish run URL + published image tags.~~
+    - Reason: requires a main-branch run (and Docker Hub secrets); will be recorded in the integration testing PR.
 
 ## Goal
 
@@ -166,14 +170,16 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
       - [x] `rm <name> --yes`
       - [x] `exec <name>`
       - [x] `reset work-repos <name> --yes`
-      - [ ] ~~`rm --all --yes`~~ (Reason: destructive on host; not executed in local smoke)
+      - [ ] ~~rm --all --yes~~
+        - Reason: destructive on host; not executed in local smoke.
       - [x] Optional mounts are non-fatal when absent; host mount setup is documented in `README.md`.
     - [x] Compatible with existing naming conventions: `CODEX_WORKSPACE_PREFIX` matches upstream behavior (evidence: `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`).
     - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
-- [ ] Step 3: Validation / testing
+- [x] Step 3: Validation / testing
   - Work Items:
     - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`).
-    - [ ] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output. (Reason: requires a real Linux host with Docker; not available in this environment)
+    - [ ] ~~Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output.~~
+      - Reason: deferred to integration testing PR after merge; requires a real Linux host with Docker.
     - [x] Verify security docs mention docker.sock risk and token visibility (`docker inspect`) (see `README.md`).
   - Artifacts:
     - `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`
@@ -184,12 +190,14 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [x] Run with real repos and representative samples:
       - public: `graysurf/codex-kit`
       - private: `OWNER/PRIVATE_REPO` (with `GH_TOKEN`) and rerun after any fix
-    - [ ] Traceable evidence exists: smoke logs + CI run URL + published image tags. (Reason: CI publishing not implemented yet; no published tags from this repo)
+    - [ ] ~~Traceable evidence exists: smoke logs + CI run URL + published image tags.~~
+      - Reason: deferred to integration testing PR after merge; requires first main-branch CI publish run and image tags.
 - [ ] Step 4: Release / wrap-up
   - Work Items:
     - [x] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
     - [x] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes (see `README.md`).
     - [x] Provide host wrapper scripts + completion (`cws` for zsh, then bash) and document install/customization.
+    - [x] Add local build docs (custom tags + `CWS_IMAGE`) and link from `README.md`: `docs/BUILD.md`.
     - [ ] Close out progress file when implementation merges (set to DONE and archive). (Reason: pending merge of implementation PRs)
   - Artifacts:
     - `.github/workflows/publish.yml`
@@ -197,7 +205,7 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
   - Exit Criteria:
     - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later). (Reason: publish pending first CI run)
     - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags. (Reason: requires Docker Hub secrets + a main-branch run)
-    - [x] Documentation completed and entry points updated: `README.md`, `docs/progress/README.md`.
+    - [x] Documentation completed and entry points updated: `README.md`, `docs/BUILD.md`, `docs/progress/README.md`.
     - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete. (Reason: pending completion of Step 3/4 evidence + merge)
 
 ## Modules
