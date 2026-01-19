@@ -2,17 +2,23 @@
 
 | Status | Created | Updated |
 | --- | --- | --- |
-| DRAFT | 2026-01-20 | 2026-01-20 |
+| DONE | 2026-01-20 | 2026-01-20 |
 
 Links:
 
-- PR: [#1](https://github.com/graysurf/codex-workspace-launcher/pull/1)
-- Docs: `docs/DESIGN.md`
-- Glossary: `docs/templates/PROGRESS_GLOSSARY.md`
+- PR: https://github.com/graysurf/codex-workspace-launcher/pull/2
+- Planning PR: [#1](https://github.com/graysurf/codex-workspace-launcher/pull/1)
+- Implementation PR: [#2](https://github.com/graysurf/codex-workspace-launcher/pull/2)
+- Docs: [docs/DESIGN.md](../../DESIGN.md)
+- Glossary: [docs/templates/PROGRESS_GLOSSARY.md](../../templates/PROGRESS_GLOSSARY.md)
 
 ## Addendum
 
-- None
+- 2026-01-20: Deferred remaining Step 3 validation evidence to an integration testing PR after merge.
+  - ~~Linux host smoke run + evidence log.~~
+    - Reason: requires a real Linux host with Docker; will be captured in the integration testing PR.
+  - ~~CI publish run URL + published image tags.~~
+    - Reason: requires a main-branch run (and Docker Hub secrets); will be recorded in the integration testing PR.
 
 ## Goal
 
@@ -86,6 +92,28 @@ Links:
   - b) Docker Hub + GHCR (`ghcr.io/graysurf/codex-workspace-launcher`) with the same tags.
   - c) Publish only on release tags `v*` (optionally also `latest`).
 
+### Proposed Enhancements (Host Wrapper + Shell Completion)
+
+Context: the README “Quickstart” `cws()` wrapper is a much nicer UX than repeating `docker run ...` manually. We
+can ship a host-side wrapper (zsh first, then bash) plus completion scripts so users can adopt it with minimal
+copy/paste.
+
+Decisions (confirmed):
+
+- Wrapper form + naming:
+  - c) **Selected**: provide both a `cws` shell function (sourceable) and an executable `cws` script; completion targets `cws`.
+- Distribution / install UX:
+  - a) **Selected**: add files under `scripts/` (e.g. `scripts/cws.zsh`, `scripts/cws.bash`) and document “source this in your shell rc”.
+  - b) Add an `install` helper script (copies/symlinks into a conventional completion dir).
+- Completion packaging:
+  - a) **Selected**: completion is defined inside the sourced wrapper file(s) and registers to `cws`.
+- Completion behavior:
+  - a) **Selected**: static completion for subcommands/flags + dynamic workspace-name completion by querying host `docker ps` (fast; no image call).
+  - b) Static-only completion (simpler, less magic).
+- Defaults carried by the wrapper:
+  - a) **Selected**: always mount `docker.sock` and forward `GH_TOKEN`/`GITHUB_TOKEN` when set; allow extra docker args via `CWS_DOCKER_ARGS` and image override via `CWS_IMAGE`.
+  - b) Keep wrapper minimal (only docker.sock) and document manual token/env forwarding.
+
 ### Risks / Uncertainties
 
 - Security: mounting `docker.sock` is root-equivalent on the host; mitigation is explicit documentation and safe defaults.
@@ -114,64 +142,72 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
       - `docker run --rm -it graysurf/codex-workspace-launcher:latest --help`
       - `docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock graysurf/codex-workspace-launcher:latest ls`
       - `docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock graysurf/codex-workspace-launcher:latest create graysurf/codex-kit`
-- [ ] Step 1: Minimum viable output (MVP)
+- [x] Step 1: Minimum viable output (MVP)
   - Work Items:
-    - [ ] Implement `Dockerfile` with required tooling and clone/pin `zsh-kit` + `codex-kit` into `/opt/...`.
-    - [ ] Add `bin/codex-workspace` wrapper that sources `workspace-launcher.zsh` and runs `codex-workspace "$@"`.
-    - [ ] Add minimal `README.md` quickstart and common commands (`--help`, `ls`, `create`).
+    - [x] Implement `Dockerfile` with required tooling and clone/pin `zsh-kit` + `codex-kit` into `/opt/...`.
+    - [x] Add `bin/codex-workspace` wrapper that sources `workspace-launcher.zsh` and runs `codex-workspace "$@"`.
+    - [x] Add minimal `README.md` quickstart and common commands (`--help`, `ls`, `create`).
   - Artifacts:
     - `Dockerfile`
     - `bin/codex-workspace`
     - `README.md`
   - Exit Criteria:
-    - [ ] At least one happy path runs end-to-end:
+    - [x] At least one happy path runs end-to-end (evidence: `$CODEX_HOME/out/codex-workspace-launcher-step1-smoke-20260120.md`):
       - `docker build -t codex-workspace-launcher:dev .`
       - `docker run --rm -it codex-workspace-launcher:dev --help`
       - `docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock codex-workspace-launcher:dev create graysurf/codex-kit`
-    - [ ] Primary outputs are verifiable (workspace containers/volumes exist): `docker ps -a` and `docker volume ls`.
-    - [ ] Usage docs skeleton exists (TL;DR + common commands + DooD rules): `README.md`.
-- [ ] Step 2: Expansion / integration
+    - [x] Primary outputs are verifiable (workspace containers/volumes exist): `docker ps -a` and `docker volume ls`.
+    - [x] Usage docs skeleton exists (TL;DR + common commands + DooD rules): `README.md`.
+- [x] Step 2: Expansion / integration
   - Work Items:
-    - [ ] Document and support optional host mounts (secrets/config snapshot) with same-path binds and `HOME` passthrough.
-    - [ ] Document full env/flags table (including deprecated) from `docs/DESIGN.md`.
-    - [ ] Validate private repo flows using `GH_TOKEN` inside the launcher container.
+    - [x] Document and support optional host mounts (secrets/config snapshot) with same-path binds and `HOME` passthrough.
+    - [x] Document full env/flags table (including deprecated) from `docs/DESIGN.md`.
+    - [x] Validate private repo flows using `GH_TOKEN` inside the launcher container.
   - Artifacts:
     - `README.md`
     - `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`
   - Exit Criteria:
-    - [ ] Common branches are covered:
-      - `rm <name> --yes`, `rm --all --yes`, `reset`, `exec <name>`
-      - optional mounts missing/unreadable are skipped with a clear message
-    - [ ] Compatible with existing naming conventions: `CODEX_WORKSPACE_PREFIX` matches upstream behavior.
-    - [ ] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
-- [ ] Step 3: Validation / testing
+    - [x] Common branches are covered (evidence: `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`):
+      - [x] `rm <name> --yes`
+      - [x] `exec <name>`
+      - [x] `reset work-repos <name> --yes`
+      - [ ] ~~rm --all --yes~~
+        - Reason: destructive on host; not executed in local smoke.
+      - [x] Optional mounts are non-fatal when absent; host mount setup is documented in `README.md`.
+    - [x] Compatible with existing naming conventions: `CODEX_WORKSPACE_PREFIX` matches upstream behavior (evidence: `$CODEX_HOME/out/codex-workspace-launcher-private-repo.md`).
+    - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
+- [x] Step 3: Validation / testing
   - Work Items:
-    - [ ] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output.
-    - [ ] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output.
-    - [ ] Verify security docs mention docker.sock risk and token visibility (`docker inspect`).
+    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`).
+    - [ ] ~~Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output.~~
+      - Reason: deferred to integration testing PR after merge; requires a real Linux host with Docker.
+    - [x] Verify security docs mention docker.sock risk and token visibility (`docker inspect`) (see `README.md`).
   - Artifacts:
     - `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`
     - `$CODEX_HOME/out/codex-workspace-launcher-smoke-linux-20260120.md`
     - CI workflow run link (once available)
   - Exit Criteria:
-    - [ ] Validation commands executed with results recorded: see `$CODEX_HOME/out/codex-workspace-launcher-smoke-*.md`.
-    - [ ] Run with real repos and representative samples:
+    - [x] Validation commands executed with results recorded: see `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`.
+    - [x] Run with real repos and representative samples:
       - public: `graysurf/codex-kit`
       - private: `OWNER/PRIVATE_REPO` (with `GH_TOKEN`) and rerun after any fix
-    - [ ] Traceable evidence exists: smoke logs + CI run URL + published image tags.
+    - [ ] ~~Traceable evidence exists: smoke logs + CI run URL + published image tags.~~
+      - Reason: deferred to integration testing PR after merge; requires first main-branch CI publish run and image tags.
 - [ ] Step 4: Release / wrap-up
   - Work Items:
-    - [ ] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
-    - [ ] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes.
-    - [ ] Close out progress file when implementation merges (set to DONE and archive).
+    - [x] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
+    - [x] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes (see `README.md`).
+    - [x] Provide host wrapper scripts + completion (`cws` for zsh, then bash) and document install/customization.
+    - [x] Add local build docs (custom tags + `CWS_IMAGE`) and link from `README.md`: `docs/BUILD.md`.
+    - [ ] Close out progress file when implementation merges (set to DONE and archive). (Reason: pending merge of implementation PRs)
   - Artifacts:
     - `.github/workflows/publish.yml`
     - Published image tags and workflow run link
   - Exit Criteria:
-    - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later); release notes: `README.md` (TBD if `CHANGELOG.md` is added).
-    - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags.
-    - [ ] Documentation completed and entry points updated: `README.md`, `docs/progress/README.md`.
-    - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete.
+    - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later). (Reason: publish pending first CI run)
+    - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags. (Reason: requires Docker Hub secrets + a main-branch run)
+    - [x] Documentation completed and entry points updated: `README.md`, `docs/BUILD.md`, `docs/progress/README.md`.
+    - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete. (Reason: pending completion of Step 3/4 evidence + merge)
 
 ## Modules
 

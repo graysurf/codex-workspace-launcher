@@ -1,0 +1,61 @@
+name: publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Resolve upstream refs
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          zsh_kit_ref="$(git ls-remote https://github.com/graysurf/zsh-kit.git refs/heads/main | awk '{print $1}' | head -n 1)"
+          codex_kit_ref="$(git ls-remote https://github.com/graysurf/codex-kit.git refs/heads/main | awk '{print $1}' | head -n 1)"
+          echo "zsh_kit_ref=$zsh_kit_ref" >>"$GITHUB_OUTPUT"
+          echo "codex_kit_ref=$codex_kit_ref" >>"$GITHUB_OUTPUT"
+
+      - name: Compute tags
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "short_sha=${GITHUB_SHA::7}" >>"$GITHUB_OUTPUT"
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            graysurf/codex-workspace-launcher:latest
+            graysurf/codex-workspace-launcher:sha-${{ steps.meta.outputs.short_sha }}
+          build-args: |
+            ZSH_KIT_REF=${{ steps.refs.outputs.zsh_kit_ref }}
+            CODEX_KIT_REF=${{ steps.refs.outputs.codex_kit_ref }}
+
