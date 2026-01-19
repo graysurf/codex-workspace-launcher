@@ -6,7 +6,7 @@
 
 Links:
 
-- PR: TBD
+- PR: [#1](https://github.com/graysurf/codex-workspace-launcher/pull/1)
 - Docs: `docs/DESIGN.md`
 - Glossary: `docs/templates/PROGRESS_GLOSSARY.md`
 
