@@ -102,6 +102,16 @@ docker build -t codex-workspace-launcher:dev \
   .
 ```
 
+Publishing (CI):
+
+- Workflow: `.github/workflows/publish.yml`
+- Triggers: PRs build only; pushes to `main` publish images
+- Registry: Docker Hub (`graysurf/codex-workspace-launcher`)
+- Tags: `latest`, `sha-<short>`
+- Secrets (GitHub Actions): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- Ref pinning: the workflow resolves `graysurf/zsh-kit@main` and `graysurf/codex-kit@main` to commit SHAs and
+  builds with those SHAs (reproducible published images).
+
 Private repo:
 
 ```sh

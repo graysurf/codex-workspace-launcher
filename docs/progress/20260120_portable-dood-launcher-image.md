@@ -165,17 +165,17 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [ ] Traceable evidence exists: smoke logs + CI run URL + published image tags. (Reason: CI publishing not implemented yet; no published tags from this repo)
 - [ ] Step 4: Release / wrap-up
   - Work Items:
-    - [ ] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
-    - [ ] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes.
-    - [ ] Close out progress file when implementation merges (set to DONE and archive).
+    - [x] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
+    - [x] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes (see `README.md`).
+    - [ ] Close out progress file when implementation merges (set to DONE and archive). (Reason: pending merge of implementation PRs)
   - Artifacts:
     - `.github/workflows/publish.yml`
     - Published image tags and workflow run link
   - Exit Criteria:
-    - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later); release notes: `README.md` (TBD if `CHANGELOG.md` is added).
-    - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags.
-    - [ ] Documentation completed and entry points updated: `README.md`, `docs/progress/README.md`.
-    - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete.
+    - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later). (Reason: publish pending first CI run)
+    - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags. (Reason: requires Docker Hub secrets + a main-branch run)
+    - [x] Documentation completed and entry points updated: `README.md`, `docs/progress/README.md`.
+    - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete. (Reason: pending completion of Step 3/4 evidence + merge)
 
 ## Modules
 
