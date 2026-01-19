@@ -74,15 +74,15 @@ Links:
 ### Open Decisions (Step 0)
 
 - Ref pinning (`ZSH_KIT_REF`, `CODEX_KIT_REF`):
-  - a) **Default**: Dockerfile defaults to `main`; CI pins to commit SHAs for published images.
+  - a) **Selected**: Dockerfile defaults to `main`; CI pins to commit SHAs for published images.
   - b) Always pin Dockerfile defaults to fixed SHAs/tags (manual bump when upstream changes).
   - c) Vendor scripts into this repo/image (no git clone at build; higher maintenance).
 - Default runtime image (`CODEX_ENV_IMAGE`):
-  - a) **Default**: rely on upstream default `graysurf/codex-env:linuxbrew` (document; overridable via env).
+  - a) **Selected**: rely on upstream default `graysurf/codex-env:linuxbrew` (document; overridable via env).
   - b) Set `ENV CODEX_ENV_IMAGE=graysurf/codex-env:linuxbrew` in Dockerfile for clarity (still overridable).
   - c) Change default to a different image/tag (specify).
 - Publish registry + tags:
-  - a) **Default**: Docker Hub only (`graysurf/codex-workspace-launcher`); on push to `main` publish `latest` + `sha-<short>`.
+  - a) **Selected**: Docker Hub only (`graysurf/codex-workspace-launcher`); on push to `main` publish `latest` + `sha-<short>`.
   - b) Docker Hub + GHCR (`ghcr.io/graysurf/codex-workspace-launcher`) with the same tags.
   - c) Publish only on release tags `v*` (optionally also `latest`).
 
@@ -98,11 +98,11 @@ Links:
 Note: Any unchecked checkbox in Step 0–3 must include a Reason (inline `Reason: ...` or a nested `- Reason: ...`) before close-progress-pr can complete. Step 4 is excluded (post-merge / wrap-up).
 Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like this~~` and include `Reason:`. Unchecked and unstruck items (e.g. `- [ ] foo`) will block close-progress-pr.
 
-- [ ] Step 0: Alignment / prerequisites (Reason: needs decisions in “Open Decisions (Step 0)”)
+- [x] Step 0: Alignment / prerequisites
   - Work Items:
     - [x] Confirm external CLI contract matches `workspace-launcher.zsh` help output and `docs/DESIGN.md`.
-    - [ ] Decide ref pinning strategy (`ZSH_KIT_REF`, `CODEX_KIT_REF`) and default runtime image (`CODEX_ENV_IMAGE`). (Reason: awaiting maintainer decision; see “Open Decisions (Step 0)”)
-    - [ ] Decide publish target(s) and tag strategy (`latest`, `sha-<short>`, optional semver). (Reason: awaiting maintainer decision; see “Open Decisions (Step 0)”)
+    - [x] Decide ref pinning strategy (`ZSH_KIT_REF`, `CODEX_KIT_REF`) and default runtime image (`CODEX_ENV_IMAGE`). (Decision: 1a, 2a)
+    - [x] Decide publish target(s) and tag strategy (`latest`, `sha-<short>`, optional semver). (Decision: 3a)
   - Artifacts:
     - `docs/progress/20260120_portable-dood-launcher-image.md` (this file)
     - `docs/DESIGN.md` (external contract + smoke commands)
