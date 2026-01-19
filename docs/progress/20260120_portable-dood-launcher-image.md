@@ -150,19 +150,19 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
 - [ ] Step 3: Validation / testing
   - Work Items:
-    - [ ] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output.
-    - [ ] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output.
-    - [ ] Verify security docs mention docker.sock risk and token visibility (`docker inspect`).
+    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`).
+    - [ ] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output. (Reason: requires a real Linux host with Docker; not available in this environment)
+    - [x] Verify security docs mention docker.sock risk and token visibility (`docker inspect`) (see `README.md`).
   - Artifacts:
     - `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`
     - `$CODEX_HOME/out/codex-workspace-launcher-smoke-linux-20260120.md`
     - CI workflow run link (once available)
   - Exit Criteria:
-    - [ ] Validation commands executed with results recorded: see `$CODEX_HOME/out/codex-workspace-launcher-smoke-*.md`.
-    - [ ] Run with real repos and representative samples:
+    - [x] Validation commands executed with results recorded: see `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`.
+    - [x] Run with real repos and representative samples:
       - public: `graysurf/codex-kit`
       - private: `OWNER/PRIVATE_REPO` (with `GH_TOKEN`) and rerun after any fix
-    - [ ] Traceable evidence exists: smoke logs + CI run URL + published image tags.
+    - [ ] Traceable evidence exists: smoke logs + CI run URL + published image tags. (Reason: CI publishing not implemented yet; no published tags from this repo)
 - [ ] Step 4: Release / wrap-up
   - Work Items:
     - [ ] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
