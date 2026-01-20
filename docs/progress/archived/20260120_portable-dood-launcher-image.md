@@ -11,6 +11,7 @@ Links:
 - Implementation PR: [#2](https://github.com/graysurf/codex-workspace-launcher/pull/2)
 - Integration testing PR: [#3](https://github.com/graysurf/codex-workspace-launcher/pull/3)
 - Docs: [docs/DESIGN.md](../../DESIGN.md)
+- User guide: [docs/guides/README.md](../../guides/README.md)
 - Integration checklist: [docs/runbooks/INTEGRATION_TEST.md](../../runbooks/INTEGRATION_TEST.md)
 - Dev notes: [docs/runbooks/DEV_NOTES.md](../../runbooks/DEV_NOTES.md)
 - Glossary: [docs/templates/PROGRESS_GLOSSARY.md](../../templates/PROGRESS_GLOSSARY.md)

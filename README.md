@@ -200,15 +200,19 @@ Publishing (CI):
 
 - Workflow: `.github/workflows/publish.yml`
 - Triggers: PRs build only; pushes to `main` publish images
-- Registry: Docker Hub (`graysurf/codex-workspace-launcher`)
+- Registries:
+  - Docker Hub: `graysurf/codex-workspace-launcher` (publish requires secrets)
+  - GHCR: `ghcr.io/graysurf/codex-workspace-launcher` (publish uses `GITHUB_TOKEN`)
 - Tags: `latest`, `sha-<short>`
-- Secrets (GitHub Actions): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- Secrets (GitHub Actions; Docker Hub only): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
 - Ref pinning: the workflow resolves `graysurf/zsh-kit@main` and `graysurf/codex-kit@main` to commit SHAs and
   builds with those SHAs (reproducible published images).
 
 ## Docs
 
 - [docs/DESIGN.md](docs/DESIGN.md)
+- [docs/BUILD.md](docs/BUILD.md)
+- [docs/guides/README.md](docs/guides/README.md)
 
 ## 🪪 License
 

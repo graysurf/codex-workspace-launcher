@@ -21,3 +21,5 @@ Guidelines:
   - `ci-publish-verification-20260120-081548.log`
   - `ghcr-verification-20260120-084948.log`
   - `linux-exploratory-smoke-orbstack-20260120-085812.log`
+  - `cws-guide-smoke-20260120-093536.log`
+  - `cws-guide-create-20260120-093536.log`
