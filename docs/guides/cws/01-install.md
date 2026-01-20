@@ -38,7 +38,7 @@ source "$HOME/.config/codex-workspace-launcher/cws.bash"
 ## Option C: install as an executable
 
 ```sh
-cp ./scripts/cws ~/.local/bin/cws
+cp ./scripts/cws.bash ~/.local/bin/cws
 ```
 
 ## Optional: shell completion

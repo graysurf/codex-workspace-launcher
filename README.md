@@ -25,7 +25,7 @@ Use the provided `cws` wrapper (recommended):
 
 - zsh: `source ./scripts/cws.zsh` (completion registers once `compinit` is available; see [`scripts/cws.zsh`](scripts/cws.zsh))
 - bash: `source ./scripts/cws.bash` (see [`scripts/cws.bash`](scripts/cws.bash))
-- executable: put `./scripts/cws` on your `PATH` (example: `cp ./scripts/cws ~/.local/bin/cws`; see [`scripts/cws`](scripts/cws))
+- executable: put `./scripts/cws.bash` on your `PATH` (example: `cp ./scripts/cws.bash ~/.local/bin/cws`; see [`scripts/cws.bash`](scripts/cws.bash))
 
 Without cloning (zsh):
 

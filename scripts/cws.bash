@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+fi
+
 _cws_parse_repo_spec() {
   local input="${1:-}"
   local default_host="${2:-github.com}"
@@ -472,3 +476,7 @@ _cws_complete() {
 }
 
 complete -F _cws_complete cws
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  cws "$@"
+fi

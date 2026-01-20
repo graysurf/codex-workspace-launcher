@@ -1,276 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-image="${CWS_IMAGE:-graysurf/codex-workspace-launcher:latest}"
+script_dir="$(
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
+  pwd -P
+)"
 
-_cws_parse_repo_spec() {
-  local input="${1:-}"
-  local default_host="${2:-github.com}"
-  [[ -n "$input" ]] || return 1
-
-  local host="$default_host"
-  local owner_repo="$input"
-
-  if [[ "$input" == http://* || "$input" == https://* ]]; then
-    local without_scheme="${input#*://}"
-    host="${without_scheme%%/*}"
-    owner_repo="${without_scheme#*/}"
-  elif [[ "$input" == git@*:* ]]; then
-    local without_user="${input#git@}"
-    host="${without_user%%:*}"
-    owner_repo="${input#*:}"
-  elif [[ "$input" == ssh://git@*/* ]]; then
-    local without_prefix="${input#ssh://git@}"
-    host="${without_prefix%%/*}"
-    owner_repo="${without_prefix#*/}"
-  fi
-
-  owner_repo="${owner_repo%.git}"
-  owner_repo="${owner_repo%/}"
-  if [[ "$owner_repo" == */*/* ]]; then
-    local owner="${owner_repo%%/*}"
-    local rest="${owner_repo#*/}"
-    local name="${rest%%/*}"
-    owner_repo="${owner}/${name}"
-  fi
-  [[ "$owner_repo" == */* ]] || return 1
-
-  printf '%s %s\n' "$host" "$owner_repo"
-  return 0
-}
-
-_cws_detect_gh_target_for_create() {
-  local private_repo=""
-  local repo=""
-
-  local i=0
-  while (( i < $# )); do
-    local arg="${@:i+1:1}"
-    case "$arg" in
-      -h|--help)
-        return 1
-        ;;
-      --private-repo)
-        private_repo="${@:i+2:1}"
-        (( i += 2 ))
-        ;;
-      --private-repo=*)
-        private_repo="${arg#*=}"
-        (( i += 1 ))
-        ;;
-      --name)
-        (( i += 2 ))
-        ;;
-      --name=*)
-        (( i += 1 ))
-        ;;
-      --no-extras|--no-work-repos)
-        (( i += 1 ))
-        ;;
-      --)
-        (( i += 1 ))
-        break
-        ;;
-      -*)
-        (( i += 1 ))
-        ;;
-      *)
-        repo="$arg"
-        break
-        ;;
-    esac
-  done
-
-  local candidate="${repo//[[:space:]]/}"
-  if [[ -z "$candidate" ]]; then
-    candidate="${private_repo//[[:space:]]/}"
-  fi
-
-  local gh_host="github.com"
-  local gh_owner_repo=""
-  if [[ -n "$candidate" ]]; then
-    read -r gh_host gh_owner_repo < <(_cws_parse_repo_spec "$candidate" "$gh_host" 2>/dev/null || printf '%s %s\n' "$gh_host" "")
-  fi
-
-  printf '%s %s\n' "$gh_host" "$gh_owner_repo"
-  return 0
-}
-
-_cws_detect_gh_host_for_auth_github() {
-  local gh_host="${GITHUB_HOST:-github.com}"
-
-  local i=0
-  while (( i < $# )); do
-    local arg="${@:i+1:1}"
-    case "$arg" in
-      -h|--help)
-        return 1
-        ;;
-      --host)
-        gh_host="${@:i+2:1}"
-        break
-        ;;
-      --host=*)
-        gh_host="${arg#*=}"
-        break
-        ;;
-      --)
-        break
-        ;;
-    esac
-    (( i += 1 ))
-  done
-
-  gh_host="${gh_host//[[:space:]]/}"
-  [[ -n "$gh_host" ]] || gh_host="${GITHUB_HOST:-github.com}"
-  printf '%s\n' "$gh_host"
-  return 0
-}
-
-_cws_gh_keyring_token_for_repo() {
-  local gh_host="${1:-github.com}"
-  local gh_owner_repo="${2:-}"
-
-  command -v gh >/dev/null 2>&1 || return 0
-
-  local token=""
-  token="$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token -h "$gh_host" 2>/dev/null || true)"
-  [[ -n "$token" ]] || return 0
-
-  if [[ -n "$gh_owner_repo" && "$gh_owner_repo" == */* ]]; then
-    if GH_TOKEN="$token" GITHUB_TOKEN="" gh api --hostname "$gh_host" --silent "repos/${gh_owner_repo}" >/dev/null 2>&1; then
-      printf '%s\n' "$token"
-    fi
-    return 0
-  fi
-
-  printf '%s\n' "$token"
-  return 0
-}
-
-run_args=(run --rm)
-if [[ -t 0 && -t 1 ]]; then
-  run_args+=(-it)
-elif [[ -t 0 ]]; then
-  run_args+=(-i)
-fi
-
-run_args+=(
-  -v /var/run/docker.sock:/var/run/docker.sock
-  -e GH_TOKEN
-  -e GITHUB_TOKEN
-  -e CODEX_WORKSPACE_GPG
-  -e CODEX_WORKSPACE_GPG_KEY
-)
-
-injected_token=""
-auth_mode="${CWS_AUTH:-auto}"
-env_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-subcmd="${1:-}"
-provider="${2:-}"
-
-injected_gpg_key=""
-if [[ -z "${CODEX_WORKSPACE_GPG_KEY:-}" ]]; then
-  want_gpg=0
-  has_explicit_key=0
-
-  if [[ "$subcmd" == "create" ]]; then
-    gpg_mode="${CODEX_WORKSPACE_GPG:-none}"
-    case "$gpg_mode" in
-      import|true) want_gpg=1 ;;
-    esac
-
-    i=1
-    while (( i <= $# )); do
-      arg="${@:i:1}"
-      case "$arg" in
-        --gpg)
-          want_gpg=1
-          ;;
-        --no-gpg)
-          want_gpg=0
-          ;;
-        --gpg-key)
-          want_gpg=1
-          has_explicit_key=1
-          (( i += 1 ))
-          ;;
-        --gpg-key=*)
-          want_gpg=1
-          has_explicit_key=1
-          ;;
-      esac
-      (( i += 1 ))
-    done
-  elif [[ "$subcmd" == "auth" && "$provider" == "gpg" ]]; then
-    want_gpg=1
-    i=1
-    while (( i <= $# )); do
-      arg="${@:i:1}"
-      case "$arg" in
-        --key)
-          has_explicit_key=1
-          (( i += 1 ))
-          ;;
-        --key=*)
-          has_explicit_key=1
-          ;;
-      esac
-      (( i += 1 ))
-    done
-  fi
-
-  if (( want_gpg == 1 && has_explicit_key == 0 )); then
-    if command -v git >/dev/null 2>&1; then
-      injected_gpg_key="$(git config --global --get user.signingkey 2>/dev/null || true)"
-      injected_gpg_key="${injected_gpg_key#"${injected_gpg_key%%[![:space:]]*}"}"
-      injected_gpg_key="${injected_gpg_key%"${injected_gpg_key##*[![:space:]]}"}"
-    fi
+cws_bash_path="${CWS_BASH_PATH:-${script_dir}/cws.bash}"
+if [[ ! -f "$cws_bash_path" ]]; then
+  config_home="${XDG_CONFIG_HOME:-${HOME:-}}"
+  if [[ -n "$config_home" ]]; then
+    cws_bash_path="${config_home%/}/codex-workspace-launcher/cws.bash"
   fi
 fi
 
-if [[ "$auth_mode" != "none" && "$auth_mode" != "env" ]]; then
-  if [[ -z "$env_token" && ( "$subcmd" == "create" || "$subcmd" == "reset" || ( "$subcmd" == "auth" && "$provider" == "github" ) ) ]]; then
-    want_help=0
-    for a in "$@"; do
-      if [[ "$a" == "-h" || "$a" == "--help" ]]; then
-        want_help=1
-        break
-      fi
-    done
-
-    if (( want_help == 0 )); then
-      gh_host="${GITHUB_HOST:-github.com}"
-      gh_owner_repo=""
-      if [[ "$subcmd" == "create" ]]; then
-        read -r gh_host gh_owner_repo < <(_cws_detect_gh_target_for_create "${@:2}" 2>/dev/null || printf '%s %s\n' "$gh_host" "")
-      elif [[ "$subcmd" == "auth" && "$provider" == "github" ]]; then
-        gh_host="$(_cws_detect_gh_host_for_auth_github "${@:3}" 2>/dev/null || printf '%s\n' "$gh_host")"
-      fi
-
-      injected_token="$(_cws_gh_keyring_token_for_repo "$gh_host" "$gh_owner_repo" 2>/dev/null || true)"
-    fi
-  fi
+if [[ -f "$cws_bash_path" ]]; then
+  exec bash "$cws_bash_path" "$@"
 fi
 
-if [[ -n "${CWS_DOCKER_ARGS:-}" ]]; then
-  extra_args=()
-  read -r -a extra_args <<<"${CWS_DOCKER_ARGS}"
-  if (( ${#extra_args[@]} > 0 )); then
-    run_args+=("${extra_args[@]}")
-  fi
-fi
+cat >&2 <<'EOF'
+error: cannot find cws.bash
 
-if [[ -n "$injected_token" ]]; then
-  if [[ -n "$injected_gpg_key" ]]; then
-    GH_TOKEN="$injected_token" GITHUB_TOKEN="" CODEX_WORKSPACE_GPG_KEY="$injected_gpg_key" exec docker "${run_args[@]}" "$image" "$@"
-  else
-    GH_TOKEN="$injected_token" GITHUB_TOKEN="" exec docker "${run_args[@]}" "$image" "$@"
-  fi
-fi
+Tried:
+- ./scripts/cws.bash (next to this script)
+- ${XDG_CONFIG_HOME:-$HOME/.config}/codex-workspace-launcher/cws.bash
+- $CWS_BASH_PATH
 
-if [[ -n "$injected_gpg_key" ]]; then
-  CODEX_WORKSPACE_GPG_KEY="$injected_gpg_key" exec docker "${run_args[@]}" "$image" "$@"
-fi
-
-exec docker "${run_args[@]}" "$image" "$@"
+Install (bash):
+  mkdir -p "$HOME/.config/codex-workspace-launcher"
+  curl -fsSL https://raw.githubusercontent.com/graysurf/codex-workspace-launcher/main/scripts/cws.bash \
+    -o "$HOME/.config/codex-workspace-launcher/cws.bash"
+  source "$HOME/.config/codex-workspace-launcher/cws.bash"
+EOF
+exit 1

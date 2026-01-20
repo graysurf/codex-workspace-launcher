@@ -57,8 +57,8 @@ Executable (any shell; no completion):
 
 ```sh
 export CWS_IMAGE="codex-workspace-launcher:local"
-./scripts/cws --help
-./scripts/cws create OWNER/REPO
+./scripts/cws.bash --help
+./scripts/cws.bash create OWNER/REPO
 ```
 
 You can also override the image per-command:
