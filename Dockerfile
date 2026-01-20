@@ -1,3 +1,6 @@
+ARG DOCKER_CLI_IMAGE="docker:27-cli"
+FROM ${DOCKER_CLI_IMAGE} AS docker-cli
+
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -12,15 +15,14 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    docker.io \
     git \
     gnupg \
-    openssl \
-    python3 \
     rsync \
     zsh \
   && mkdir -p /root/.config \
   && rm -rf /var/lib/apt/lists/*
+
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 COPY bin/codex-workspace /usr/local/bin/codex-workspace
 RUN chmod +x /usr/local/bin/codex-workspace
