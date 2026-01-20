@@ -29,6 +29,12 @@ junit.xml
 .env
 .env.*
 
+## Local dev tooling
+.python-version
+.tool-versions
+.direnv/
+.envrc
+
 ## Logs
 *.log
 
