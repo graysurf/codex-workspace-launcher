@@ -129,7 +129,6 @@ Source (local): `/Users/terry/.config/zsh/scripts/_features/codex-workspace/work
 | `CODEX_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` (keyid or fingerprint) |
 | `CODEX_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for the `tunnel` subcommand (<= 20 chars) |
 | `CODEX_WORKSPACE_OPEN_VSCODE_ENABLED` | (empty/false) | Auto-run `code --new-window` if host has `code` CLI (typically not effective inside the launcher container) |
-| `CODEX_WORKSPACE_OPEN_VSCODE` | deprecated | Deprecated flag (document as deprecated) |
 
 Additional variables used (without `CODEX_WORKSPACE_` prefix, but behavior depends on them):
 
@@ -236,7 +235,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 - Quickstart (docker.sock only)
 - Private repos (`GH_TOKEN`)
 - DooD host-path rules (include secrets/config snapshot examples)
-- Complete env/flags table (include deprecated)
+- Complete env/flags table
 - Security notes (token persistence, docker.sock is effectively root)
 - Documentation portability: avoid hard-coded `/Users/...` in runnable examples; prefer `$HOME/...` + same-path binds
 

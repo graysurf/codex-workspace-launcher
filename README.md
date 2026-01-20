@@ -173,7 +173,6 @@ docker run --rm -it \
 | `CODEX_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` (keyid or fingerprint) |
 | `CODEX_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for the `tunnel` subcommand (<= 20 chars) |
 | `CODEX_WORKSPACE_OPEN_VSCODE_ENABLED` | (empty/false) | Auto-run `code --new-window` (typically not effective inside the launcher container) |
-| `CODEX_WORKSPACE_OPEN_VSCODE` | deprecated | Deprecated flag (use `CODEX_WORKSPACE_OPEN_VSCODE_ENABLED`) |
 
 Additional variables used:
 
