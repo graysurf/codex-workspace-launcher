@@ -7,12 +7,14 @@ This checklist is for validating the end-to-end experience after merging to `mai
 
 ## What to verify
 
-- [ ] macOS quickstart smoke (zsh wrapper via `cws`; no local build)
-- [ ] macOS quickstart smoke (bash wrapper via `cws`; no local build)
+- [x] macOS quickstart smoke (zsh wrapper via `cws`; no local build)
+- [x] macOS quickstart smoke (bash wrapper via `cws`; no local build)
 - [ ] Linux exploratory smoke run (captures logs)
-- [ ] CI publish run URL recorded (on `main`)
-- [ ] Published Docker Hub tags exist (`latest`, `sha-<short>`)
-- [ ] Published image is multi-arch (`linux/amd64`, `linux/arm64`)
+- [x] CI publish run URL recorded (on `main`)
+- [x] Docker Hub tags exist (`latest`, `sha-<short>`)
+- [x] Docker Hub image is multi-arch (`linux/amd64`, `linux/arm64`)
+- [ ] GHCR tags exist (`latest`, `sha-<short>`)
+- [ ] GHCR image is multi-arch (`linux/amd64`, `linux/arm64`)
 
 ## macOS quickstart smoke (published images; no local build)
 
@@ -58,6 +60,11 @@ Capture evidence:
 
 - Save the full terminal output to a log file and attach it to the integration testing PR (or paste it in a PR comment).
 
+Evidence (2026-01-20):
+
+- `$CODEX_HOME/out/macos-quickstart-smoke-20260120-080236.log`
+- `$CODEX_HOME/out/macos-quickstart-create-20260120-080236.log`
+
 ## Linux exploratory smoke (do not claim support yet)
 
 Run on a real Linux host with Docker (rootful):
@@ -98,10 +105,20 @@ After merge to `main`, verify:
 - Docker Hub has the expected tags:
   - `graysurf/codex-workspace-launcher:latest`
   - `graysurf/codex-workspace-launcher:sha-<short>`
-- The published image is multi-arch:
+- GHCR has the expected tags:
+  - `ghcr.io/graysurf/codex-workspace-launcher:latest`
+  - `ghcr.io/graysurf/codex-workspace-launcher:sha-<short>`
+- The published images are multi-arch:
 
 ```sh
 docker buildx imagetools inspect graysurf/codex-workspace-launcher:latest
+docker buildx imagetools inspect ghcr.io/graysurf/codex-workspace-launcher:latest
 ```
 
 Expected platforms include `linux/amd64` and `linux/arm64`.
+
+Evidence (2026-01-20):
+
+- Docker Hub verification (before GHCR publish): https://github.com/graysurf/codex-workspace-launcher/actions/runs/21154177325
+- Docker Hub inspect log: `$CODEX_HOME/out/ci-publish-verification-20260120-081548.log`
+- GHCR verification: (pending; record after merging GHCR publish support)
