@@ -782,7 +782,10 @@ def _first_non_option(args: list[str], options_with_values: set[str]) -> str | N
 
 def _build_env(case_env: dict[str, str] | None, config: _E2EConfig) -> dict[str, str]:
     env = os.environ.copy()
+    if not config.use_host_home:
+        env.pop("CWS_DOCKER_ARGS", None)
     env["CODEX_HOME"] = str(repo_root())
+    env["CODEX_WORKSPACE_OPEN_VSCODE_ENABLED"] = "false"
     env["NO_COLOR"] = "1"
     env["CLICOLOR"] = "0"
     env["CLICOLOR_FORCE"] = "0"
