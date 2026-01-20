@@ -9,7 +9,7 @@ This checklist is for validating the end-to-end experience after merging to `mai
 
 - [x] macOS quickstart smoke (zsh wrapper via `cws`; no local build)
 - [x] macOS quickstart smoke (bash wrapper via `cws`; no local build)
-- [ ] Linux exploratory smoke run (captures logs)
+- [x] Linux exploratory smoke run (captures logs)
 - [x] CI publish run URL recorded (on `main`)
 - [x] Docker Hub tags exist (`latest`, `sha-<short>`)
 - [x] Docker Hub image is multi-arch (`linux/amd64`, `linux/arm64`)
@@ -96,6 +96,11 @@ Expected failure mode:
 Capture evidence:
 
 - Save the full terminal output to a log file and attach it to the integration testing PR (or paste it in a PR comment).
+
+Evidence (2026-01-20; OrbStack on macOS):
+
+- `$CODEX_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
+- `$CODEX_HOME/out/linux-exploratory-create-orbstack-20260120-085812.log`
 
 ## CI publish verification
 
