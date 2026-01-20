@@ -288,40 +288,40 @@ _cws() {
           _arguments -C \
             '-h[Show help]' \
             '--help[Show help]' \
-            '1:provider:(codex github gpg)' \
+            '2:provider:(codex github gpg)' \
             '--profile[Codex profile name]:profile:' \
             '--container[Workspace name/container]:workspace:_cws_workspaces' \
             '--name[Workspace name/container]:workspace:_cws_workspaces' \
-            '2:workspace:_cws_workspaces' \
+            '3:workspace:_cws_workspaces' \
             && return
           ;;
         github)
           _arguments -C \
             '-h[Show help]' \
             '--help[Show help]' \
-            '1:provider:(codex github gpg)' \
+            '2:provider:(codex github gpg)' \
             '--host[GitHub hostname]:host:' \
             '--container[Workspace name/container]:workspace:_cws_workspaces' \
             '--name[Workspace name/container]:workspace:_cws_workspaces' \
-            '2:workspace:_cws_workspaces' \
+            '3:workspace:_cws_workspaces' \
             && return
           ;;
         gpg)
           _arguments -C \
             '-h[Show help]' \
             '--help[Show help]' \
-            '1:provider:(codex github gpg)' \
+            '2:provider:(codex github gpg)' \
             '--key[GPG keyid or fingerprint]:key:' \
             '--container[Workspace name/container]:workspace:_cws_workspaces' \
             '--name[Workspace name/container]:workspace:_cws_workspaces' \
-            '2:workspace:_cws_workspaces' \
+            '3:workspace:_cws_workspaces' \
             && return
           ;;
         *)
           _arguments -C \
             '-h[Show help]' \
             '--help[Show help]' \
-            '1:provider:(codex github gpg)' \
+            '2:provider:(codex github gpg)' \
             && return
           ;;
       esac
@@ -349,7 +349,7 @@ _cws() {
         '--help[Show help]' \
         '--root[Exec as root]' \
         '--user[Exec as a specific user]:user:' \
-        '1:workspace:_cws_workspaces' \
+        '2:workspace:_cws_workspaces' \
         '*:command:_command_names -e' \
         && return
       ;;
@@ -359,15 +359,15 @@ _cws() {
         '--help[Show help]' \
         '--all[Remove all workspaces]' \
         '--yes[Skip confirmation]' \
-        '1:workspace:_cws_workspaces' \
+        '2:workspace:_cws_workspaces' \
         && return
       ;;
     reset)
       _arguments -C \
         '-h[Show help]' \
         '--help[Show help]' \
-        '1:reset-command:(repo work-repos opt-repos private-repo)' \
-        '2:workspace:_cws_workspaces' \
+        '2:reset-command:(repo work-repos opt-repos private-repo)' \
+        '3:workspace:_cws_workspaces' \
         '*::args:' \
         && return
       ;;
@@ -377,7 +377,7 @@ _cws() {
         '--help[Show help]' \
         '--detach[Run tunnel in background]' \
         '--name[Tunnel name (<= 20 chars)]:name:' \
-        '1:workspace:_cws_workspaces' \
+        '2:workspace:_cws_workspaces' \
         && return
       ;;
   esac
