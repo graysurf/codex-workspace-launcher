@@ -9,7 +9,10 @@ Links:
 - PR: https://github.com/graysurf/codex-workspace-launcher/pull/2
 - Planning PR: [#1](https://github.com/graysurf/codex-workspace-launcher/pull/1)
 - Implementation PR: [#2](https://github.com/graysurf/codex-workspace-launcher/pull/2)
+- Integration testing PR: [#3](https://github.com/graysurf/codex-workspace-launcher/pull/3)
 - Docs: [docs/DESIGN.md](../../DESIGN.md)
+- Integration checklist: [docs/runbooks/INTEGRATION_TEST.md](../../runbooks/INTEGRATION_TEST.md)
+- Dev notes: [docs/runbooks/DEV_NOTES.md](../../runbooks/DEV_NOTES.md)
 - Glossary: [docs/templates/PROGRESS_GLOSSARY.md](../../templates/PROGRESS_GLOSSARY.md)
 
 ## Addendum
@@ -19,6 +22,10 @@ Links:
     - Reason: requires a real Linux host with Docker; will be captured in the integration testing PR.
   - ~~CI publish run URL + published image tags.~~
     - Reason: requires a main-branch run (and Docker Hub secrets); will be recorded in the integration testing PR.
+- 2026-01-20: Completed deferred Step 3/4 validation evidence (see `docs/runbooks/INTEGRATION_TEST.md`).
+  - Linux exploratory smoke evidence (OrbStack engine): `$CODEX_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
+  - CI publish + Docker Hub tags evidence: `$CODEX_HOME/out/ci-publish-verification-20260120-081548.log`
+  - CI publish + GHCR tags evidence: `$CODEX_HOME/out/ghcr-verification-20260120-084948.log`
 
 ## Goal
 
@@ -31,7 +38,7 @@ Links:
 - With `-v /var/run/docker.sock:/var/run/docker.sock`, `ls`, `create graysurf/codex-kit`, `exec <name>`, and `rm <name> --yes` work end-to-end on a clean macOS host.
 - With `-e GH_TOKEN="$GH_TOKEN"`, `create OWNER/PRIVATE_REPO` can clone/pull private repos (no host mounts required by default).
 - `README.md` documents Quickstart, DooD rules, env vars (including deprecated), and security notes.
-- CI publishes multi-arch (`linux/amd64,linux/arm64`) images with `latest` + `sha-<short>` tags.
+- CI publishes multi-arch (`linux/amd64,linux/arm64`) images with `latest` + `sha-<short>` tags (Docker Hub + GHCR).
 
 ## Scope
 
@@ -88,8 +95,8 @@ Links:
   - b) Set `ENV CODEX_ENV_IMAGE=graysurf/codex-env:linuxbrew` in Dockerfile for clarity (still overridable).
   - c) Change default to a different image/tag (specify).
 - Publish registry + tags:
-  - a) **Selected**: Docker Hub only (`graysurf/codex-workspace-launcher`); on push to `main` publish `latest` + `sha-<short>`.
-  - b) Docker Hub + GHCR (`ghcr.io/graysurf/codex-workspace-launcher`) with the same tags.
+  - a) Docker Hub only (`graysurf/codex-workspace-launcher`); on push to `main` publish `latest` + `sha-<short>`.
+  - b) **Selected**: Docker Hub + GHCR (`ghcr.io/graysurf/codex-workspace-launcher`) with the same tags.
   - c) Publish only on release tags `v*` (optionally also `latest`).
 
 ### Proposed Enhancements (Host Wrapper + Shell Completion)
@@ -130,7 +137,7 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
   - Work Items:
     - [x] Confirm external CLI contract matches `workspace-launcher.zsh` help output and `docs/DESIGN.md`.
     - [x] Decide ref pinning strategy (`ZSH_KIT_REF`, `CODEX_KIT_REF`) and default runtime image (`CODEX_ENV_IMAGE`). (Decision: 1a, 2a)
-    - [x] Decide publish target(s) and tag strategy (`latest`, `sha-<short>`, optional semver). (Decision: 3a)
+    - [x] Decide publish target(s) and tag strategy (`latest`, `sha-<short>`, optional semver). (Decision: 3b)
   - Artifacts:
     - `docs/progress/20260120_portable-dood-launcher-image.md` (this file)
     - `docs/DESIGN.md` (external contract + smoke commands)
@@ -178,36 +185,33 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
 - [x] Step 3: Validation / testing
   - Work Items:
-    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`).
-    - [ ] ~~Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output.~~
-      - Reason: deferred to integration testing PR after merge; requires a real Linux host with Docker.
+    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `docs/runbooks/INTEGRATION_TEST.md`).
+    - [x] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output (evidence: `docs/runbooks/INTEGRATION_TEST.md`).
     - [x] Verify security docs mention docker.sock risk and token visibility (`docker inspect`) (see `README.md`).
   - Artifacts:
-    - `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`
-    - `$CODEX_HOME/out/codex-workspace-launcher-smoke-linux-20260120.md`
-    - CI workflow run link (once available)
+    - `docs/runbooks/INTEGRATION_TEST.md`
+    - Evidence logs under `$CODEX_HOME/out/` (see `docs/runbooks/INTEGRATION_TEST.md`)
   - Exit Criteria:
-    - [x] Validation commands executed with results recorded: see `$CODEX_HOME/out/codex-workspace-launcher-smoke-macos-20260120.md`.
+    - [x] Validation commands executed with results recorded: see `docs/runbooks/INTEGRATION_TEST.md`.
     - [x] Run with real repos and representative samples:
       - public: `graysurf/codex-kit`
       - private: `OWNER/PRIVATE_REPO` (with `GH_TOKEN`) and rerun after any fix
-    - [ ] ~~Traceable evidence exists: smoke logs + CI run URL + published image tags.~~
-      - Reason: deferred to integration testing PR after merge; requires first main-branch CI publish run and image tags.
-- [ ] Step 4: Release / wrap-up
+    - [x] Traceable evidence exists: smoke logs + CI run URL + published image tags (see `docs/runbooks/INTEGRATION_TEST.md`).
+- [x] Step 4: Release / wrap-up
   - Work Items:
     - [x] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
     - [x] Document tag semantics (`latest`, `sha-<short>`, optional semver) and release workflow notes (see `README.md`).
     - [x] Provide host wrapper scripts + completion (`cws` for zsh, then bash) and document install/customization.
     - [x] Add local build docs (custom tags + `CWS_IMAGE`) and link from `README.md`: `docs/BUILD.md`.
-    - [ ] Close out progress file when implementation merges (set to DONE and archive). (Reason: pending merge of implementation PRs)
+    - [x] Close out progress file when implementation merges (set to DONE and archive).
   - Artifacts:
     - `.github/workflows/publish.yml`
     - Published image tags and workflow run link
   - Exit Criteria:
-    - [ ] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later). (Reason: publish pending first CI run)
-    - [ ] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags. (Reason: requires Docker Hub secrets + a main-branch run)
+    - [x] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later).
+    - [x] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags (see `docs/runbooks/INTEGRATION_TEST.md`).
     - [x] Documentation completed and entry points updated: `README.md`, `docs/BUILD.md`, `docs/progress/README.md`.
-    - [ ] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete. (Reason: pending completion of Step 3/4 evidence + merge)
+    - [x] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete.
 
 ## Modules
 
