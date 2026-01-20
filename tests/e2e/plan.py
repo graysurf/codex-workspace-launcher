@@ -281,39 +281,39 @@ def base_cases() -> list[CwsE2ECase]:
 
 
 def wrapper_extra_cases(wrapper: str) -> list[CwsE2ECase]:
-    if wrapper == "bash":
-        return [
+    cases: list[CwsE2ECase] = []
+
+    if wrapper in {"cli", "bash", "zsh"}:
+        cases.append(
             CwsE2ECase(
                 case_id="env_docker_args_string",
                 cws_args=["ls"],
                 env={"CWS_DOCKER_ARGS": "-e FOO=bar -e BAZ=qux"},
                 purpose="Verify extra docker args are passed through (string form).",
-            ),
+            )
+        )
+
+    if wrapper == "cli":
+        cases.append(
+            CwsE2ECase(
+                case_id="env_cws_bash_path",
+                cws_args=["ls"],
+                env={"CWS_BASH_PATH": _repo_rel(repo_root() / "scripts" / "cws.bash")},
+                purpose="Verify scripts/cws can be pointed at a specific cws.bash path.",
+            )
+        )
+
+    if wrapper in {"bash", "zsh"}:
+        cases.append(
             CwsE2ECase(
                 case_id="env_docker_args_array",
                 cws_args=["ls"],
                 prelude="CWS_DOCKER_ARGS=(-e FOO=bar -e BAZ=qux)",
                 purpose="Verify extra docker args are passed through (array form).",
-            ),
-        ]
+            )
+        )
 
-    if wrapper == "zsh":
-        return [
-            CwsE2ECase(
-                case_id="env_docker_args_string",
-                cws_args=["ls"],
-                env={"CWS_DOCKER_ARGS": "-e FOO=bar -e BAZ=qux"},
-                purpose="Verify extra docker args are passed through (string form).",
-            ),
-            CwsE2ECase(
-                case_id="env_docker_args_array",
-                cws_args=["ls"],
-                prelude="CWS_DOCKER_ARGS=(-e FOO=bar -e BAZ=qux)",
-                purpose="Verify extra docker args are passed through (array form).",
-            ),
-        ]
-
-    return []
+    return cases
 
 
 def plan_cases(wrapper: str) -> list[CwsE2EPlanCase]:
