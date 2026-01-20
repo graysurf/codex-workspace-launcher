@@ -10,6 +10,8 @@ Guidelines:
 - Keep entries short and date-stamped.
 - Prefer links to PRs, progress files, and docs.
 - Do not commit large logs or temporary artifacts; store them under `$CODEX_HOME/out/` and link to the paths.
+- `$CODEX_HOME/out/` is for short-term local verification and may be cleaned; for durable evidence, prefer PR
+  comments and GitHub Actions run URLs.
 
 ## 2026-01-20
 
