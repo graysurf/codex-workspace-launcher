@@ -184,6 +184,7 @@ cws() {
     -v /var/run/docker.sock:/var/run/docker.sock
     -e GH_TOKEN
     -e GITHUB_TOKEN
+    -e CODEX_WORKSPACE_GPG
     -e CODEX_WORKSPACE_GPG_KEY
   )
 
@@ -191,6 +192,68 @@ cws() {
   local auth_mode="${CWS_AUTH:-auto}"
   local env_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   local subcmd="${1:-}"
+
+  local injected_gpg_key=''
+  if [[ -z "${CODEX_WORKSPACE_GPG_KEY:-}" ]]; then
+    local -i want_gpg=0
+    local -i has_explicit_key=0
+
+    if [[ "$subcmd" == "create" ]]; then
+      local gpg_mode="${CODEX_WORKSPACE_GPG:-none}"
+      case "$gpg_mode" in
+        import|true) want_gpg=1 ;;
+      esac
+
+      local -a argv_scan=("$@")
+      local -i i=1
+      while (( i <= ${#argv_scan[@]} )); do
+        local arg="${argv_scan[i]-}"
+        case "$arg" in
+          --gpg)
+            want_gpg=1
+            ;;
+          --no-gpg)
+            want_gpg=0
+            ;;
+          --gpg-key)
+            want_gpg=1
+            has_explicit_key=1
+            (( i += 1 ))
+            ;;
+          --gpg-key=*)
+            want_gpg=1
+            has_explicit_key=1
+            ;;
+        esac
+        (( i += 1 ))
+      done
+    elif [[ "$subcmd" == "auth" && "${2:-}" == "gpg" ]]; then
+      want_gpg=1
+      local -a argv_scan=("$@")
+      local -i i=1
+      while (( i <= ${#argv_scan[@]} )); do
+        local arg="${argv_scan[i]-}"
+        case "$arg" in
+          --key)
+            has_explicit_key=1
+            (( i += 1 ))
+            ;;
+          --key=*)
+            has_explicit_key=1
+            ;;
+        esac
+        (( i += 1 ))
+      done
+    fi
+
+    if (( want_gpg == 1 && has_explicit_key == 0 )); then
+      if command -v git >/dev/null 2>&1; then
+        injected_gpg_key="$(git config --global --get user.signingkey 2>/dev/null || true)"
+        injected_gpg_key="${injected_gpg_key##[[:space:]]#}"
+        injected_gpg_key="${injected_gpg_key%%[[:space:]]#}"
+      fi
+    fi
+  fi
 
   if [[ "$auth_mode" != "none" && "$auth_mode" != "env" ]]; then
     local provider="${2:-}"
@@ -234,9 +297,17 @@ cws() {
   fi
 
   if [[ -n "$injected_token" ]]; then
-    GH_TOKEN="$injected_token" GITHUB_TOKEN="" command docker "${run_args[@]}" "$image" "$@"
+    if [[ -n "$injected_gpg_key" ]]; then
+      GH_TOKEN="$injected_token" GITHUB_TOKEN="" CODEX_WORKSPACE_GPG_KEY="$injected_gpg_key" command docker "${run_args[@]}" "$image" "$@"
+    else
+      GH_TOKEN="$injected_token" GITHUB_TOKEN="" command docker "${run_args[@]}" "$image" "$@"
+    fi
   else
-    command docker "${run_args[@]}" "$image" "$@"
+    if [[ -n "$injected_gpg_key" ]]; then
+      CODEX_WORKSPACE_GPG_KEY="$injected_gpg_key" command docker "${run_args[@]}" "$image" "$@"
+    else
+      command docker "${run_args[@]}" "$image" "$@"
+    fi
   fi
 }
 
