@@ -147,7 +147,7 @@ docker run --rm -it \
 
 ## Optional host mounts
 
-Secrets dir (recommended if you already have it; enables `codex-use` syncing inside the workspace):
+Secrets dir (recommended if you already have it; enables [codex-use](https://github.com/graysurf/zsh-kit/blob/0d48df3ef64fdef3641cfb7caf99be971c3286d8/scripts/_features/codex/_codex-secret.zsh#L396) syncing inside the workspace):
 
 ```sh
 docker run --rm -it \
