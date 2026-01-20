@@ -2,9 +2,7 @@ name: publish
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [docker]
   workflow_dispatch: {}
 
 permissions:
