@@ -24,6 +24,16 @@ docker run --rm -it \
   create OWNER/REPO
 ```
 
+If you have `gh` logged in on the host and want a one-off token pass-through (without exporting `GH_TOKEN`):
+
+```sh
+GH_TOKEN="$(gh auth token -h github.com)" docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e GH_TOKEN \
+  graysurf/codex-workspace-launcher:latest \
+  create OWNER/REPO
+```
+
 Use GHCR instead:
 
 ```sh

@@ -112,7 +112,10 @@ Exec gotcha:
 
 ## Private repos (GitHub)
 
-Pass a token into the launcher container:
+If you have `gh` logged in on the host, `cws create/reset` will automatically reuse that token (keyring) when
+`GH_TOKEN`/`GITHUB_TOKEN` are not set.
+
+Or pass a token into the launcher container:
 
 ```sh
 export GH_TOKEN=...

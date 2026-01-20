@@ -36,7 +36,10 @@ autoload -Uz compinit && compinit
 
 ## Auth issues (private repos)
 
-Prefer passing `GH_TOKEN`/`GITHUB_TOKEN` on the host:
+If you have `gh` logged in on the host, `cws create/reset` will automatically reuse that token (keyring) when
+`GH_TOKEN`/`GITHUB_TOKEN` are not set.
+
+Or pass `GH_TOKEN`/`GITHUB_TOKEN` on the host:
 
 ```sh
 export GH_TOKEN=...

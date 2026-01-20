@@ -42,7 +42,15 @@ cws create --no-work-repos --name ws-foo
 
 ## Private repos
 
-Pass a token on the host (recommended):
+If you have `gh` logged in on the host, `cws create` will automatically reuse that token (keyring) when
+`GH_TOKEN`/`GITHUB_TOKEN` are not set:
+
+```sh
+gh auth login
+cws create OWNER/PRIVATE_REPO
+```
+
+Or pass a token on the host:
 
 ```sh
 export GH_TOKEN=...

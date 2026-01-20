@@ -1,5 +1,134 @@
 #!/usr/bin/env zsh
 
+_cws_parse_repo_spec() {
+  emulate -L zsh
+  setopt pipe_fail
+
+  local input="${1:-}"
+  local default_host="${2:-github.com}"
+  [[ -n "$input" ]] || return 1
+
+  local host="$default_host"
+  local owner_repo="$input"
+
+  if [[ "$input" == http://* || "$input" == https://* ]]; then
+    local without_scheme="${input#*://}"
+    host="${without_scheme%%/*}"
+    owner_repo="${without_scheme#*/}"
+  elif [[ "$input" == git@*:* ]]; then
+    local without_user="${input#git@}"
+    host="${without_user%%:*}"
+    owner_repo="${input#*:}"
+  elif [[ "$input" == ssh://git@*/* ]]; then
+    local without_prefix="${input#ssh://git@}"
+    host="${without_prefix%%/*}"
+    owner_repo="${without_prefix#*/}"
+  fi
+
+  owner_repo="${owner_repo%.git}"
+  owner_repo="${owner_repo%/}"
+  if [[ "$owner_repo" == */*/* ]]; then
+    local owner="${owner_repo%%/*}"
+    local rest="${owner_repo#*/}"
+    local name="${rest%%/*}"
+    owner_repo="${owner}/${name}"
+  fi
+  [[ "$owner_repo" == */* ]] || return 1
+
+  reply=("$host" "$owner_repo")
+  return 0
+}
+
+_cws_detect_gh_target_for_create() {
+  emulate -L zsh
+  setopt pipe_fail
+
+  local -a argv=("$@")
+
+  local private_repo=''
+  local repo=''
+
+  local -i i=1
+  while (( i <= ${#argv[@]} )); do
+    local arg="${argv[i]-}"
+    case "$arg" in
+      -h|--help)
+        return 1
+        ;;
+      --private-repo)
+        private_repo="${argv[i+1]-}"
+        (( i += 2 ))
+        ;;
+      --private-repo=*)
+        private_repo="${arg#*=}"
+        (( i += 1 ))
+        ;;
+      --name)
+        (( i += 2 ))
+        ;;
+      --name=*)
+        (( i += 1 ))
+        ;;
+      --no-extras|--no-work-repos)
+        (( i += 1 ))
+        ;;
+      --)
+        (( i += 1 ))
+        break
+        ;;
+      -*)
+        (( i += 1 ))
+        ;;
+      *)
+        repo="$arg"
+        break
+        ;;
+    esac
+  done
+
+  local candidate="${repo//[[:space:]]/}"
+  if [[ -z "$candidate" ]]; then
+    candidate="${private_repo//[[:space:]]/}"
+  fi
+
+  local gh_host="github.com"
+  local gh_owner_repo=''
+  if [[ -n "$candidate" ]]; then
+    if _cws_parse_repo_spec "$candidate" "$gh_host"; then
+      gh_host="${reply[1]-$gh_host}"
+      gh_owner_repo="${reply[2]-}"
+    fi
+  fi
+
+  reply=("$gh_host" "$gh_owner_repo")
+  return 0
+}
+
+_cws_gh_keyring_token_for_repo() {
+  emulate -L zsh
+  setopt pipe_fail
+
+  local gh_host="${1:-github.com}"
+  local gh_owner_repo="${2:-}"
+
+  command -v gh >/dev/null 2>&1 || return 0
+
+  local token=''
+  token="$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token -h "$gh_host" 2>/dev/null || true)"
+  [[ -n "$token" ]] || return 0
+
+  if [[ -n "$gh_owner_repo" && "$gh_owner_repo" == */* ]]; then
+    if GH_TOKEN="$token" GITHUB_TOKEN="" gh api --hostname "$gh_host" --silent "repos/${gh_owner_repo}" >/dev/null 2>&1; then
+      print -r -- "$token"
+      return 0
+    fi
+    return 0
+  fi
+
+  print -r -- "$token"
+  return 0
+}
+
 cws() {
   emulate -L zsh
   setopt pipe_fail
@@ -20,6 +149,36 @@ cws() {
     -e GITHUB_TOKEN
   )
 
+  local injected_token=''
+  local auth_mode="${CWS_AUTH:-auto}"
+  local env_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  local subcmd="${1:-}"
+
+  if [[ "$auth_mode" != "none" && "$auth_mode" != "env" ]]; then
+    if [[ -z "$env_token" && ( "$subcmd" == "create" || "$subcmd" == "reset" ) ]]; then
+      local -i want_help=0
+      local a=''
+      for a in "$@"; do
+        if [[ "$a" == "-h" || "$a" == "--help" ]]; then
+          want_help=1
+          break
+        fi
+      done
+
+      if (( want_help == 0 )); then
+        local gh_host="github.com"
+        local gh_owner_repo=''
+        if [[ "$subcmd" == "create" ]]; then
+          _cws_detect_gh_target_for_create "${@:2}" || true
+          gh_host="${reply[1]-$gh_host}"
+          gh_owner_repo="${reply[2]-}"
+        fi
+
+        injected_token="$(_cws_gh_keyring_token_for_repo "$gh_host" "$gh_owner_repo" 2>/dev/null || true)"
+      fi
+    fi
+  fi
+
   local -a extra_args=()
   if (( ${+CWS_DOCKER_ARGS} )); then
     if [[ "${(t)CWS_DOCKER_ARGS}" == *array* ]]; then
@@ -32,7 +191,11 @@ cws() {
     run_args+=("${extra_args[@]}")
   fi
 
-  command docker "${run_args[@]}" "$image" "$@"
+  if [[ -n "$injected_token" ]]; then
+    GH_TOKEN="$injected_token" GITHUB_TOKEN="" command docker "${run_args[@]}" "$image" "$@"
+  else
+    command docker "${run_args[@]}" "$image" "$@"
+  fi
 }
 
 _cws_workspaces() {
@@ -64,24 +227,14 @@ _cws() {
     'tunnel:Start a VS Code tunnel'
   )
 
-  local state
-  _arguments -C \
-    '-h[Show help]' \
-    '--help[Show help]' \
-    '1:command:->command' \
-    '*::arg:->args' || return
-
-  case "$state" in
-    command)
-      _describe -t commands 'cws command' commands
-      return
-      ;;
-    args)
-      ;;
-    *)
-      return
-      ;;
-  esac
+  if (( CURRENT == 2 )); then
+    _arguments -C \
+      '-h[Show help]' \
+      '--help[Show help]' \
+      '1:command:(create ls exec rm reset tunnel)' \
+      && return
+    return
+  fi
 
   local cmd="${words[2]-}"
   case "$cmd" in
