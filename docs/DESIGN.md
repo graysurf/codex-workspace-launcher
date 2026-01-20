@@ -126,6 +126,7 @@ Source (local): `/Users/terry/.config/zsh/scripts/_features/codex-workspace/work
 | `CODEX_WORKSPACE_LAUNCHER_URL` | GitHub raw | Launcher download URL (only when auto-download is enabled and the script is missing) |
 | `CODEX_WORKSPACE_LAUNCHER_AUTO_PATH` | `$XDG_CACHE_HOME/...` | Auto-download install path |
 | `CODEX_WORKSPACE_AUTH` | `auto` | `auto\|gh\|env\|none`: token source selection (inside the launcher container, `env` is usually the most practical) |
+| `CODEX_WORKSPACE_GPG` | `none` | Default gpg import mode for `create` (`import\|none`) |
 | `CODEX_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` (keyid or fingerprint) |
 | `CODEX_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for the `tunnel` subcommand (<= 20 chars) |
 | `CODEX_WORKSPACE_OPEN_VSCODE_ENABLED` | (empty/false) | Auto-run `code --new-window` if host has `code` CLI (typically not effective inside the launcher container) |

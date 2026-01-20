@@ -170,6 +170,7 @@ docker run --rm -it \
 | `CODEX_WORKSPACE_LAUNCHER` | (in image) | Low-level launcher path (this image sets it to `/opt/codex-kit/docker/codex-env/bin/codex-workspace`) |
 | `CODEX_WORKSPACE_LAUNCHER_AUTO_DOWNLOAD` | `true` | Auto-download low-level launcher when missing (not used when `CODEX_WORKSPACE_LAUNCHER` is set) |
 | `CODEX_WORKSPACE_AUTH` | `auto` | `auto\|gh\|env\|none`: token source selection (`env` is most practical in the launcher container) |
+| `CODEX_WORKSPACE_GPG` | `none` | Default gpg import mode for `create` (`import\|none`) |
 | `CODEX_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` (keyid or fingerprint) |
 | `CODEX_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for the `tunnel` subcommand (<= 20 chars) |
 | `CODEX_WORKSPACE_OPEN_VSCODE_ENABLED` | (empty/false) | Auto-run `code --new-window` (typically not effective inside the launcher container) |
