@@ -11,7 +11,8 @@ Links:
 - Implementation PR: [#2](https://github.com/graysurf/codex-workspace-launcher/pull/2)
 - Integration testing PR: [#3](https://github.com/graysurf/codex-workspace-launcher/pull/3)
 - Docs: [docs/DESIGN.md](../../DESIGN.md)
-- Integration checklist: [docs/INTEGRATION_TEST.md](../../INTEGRATION_TEST.md)
+- Integration checklist: [docs/runbooks/INTEGRATION_TEST.md](../../runbooks/INTEGRATION_TEST.md)
+- Dev notes: [docs/runbooks/DEV_NOTES.md](../../runbooks/DEV_NOTES.md)
 - Glossary: [docs/templates/PROGRESS_GLOSSARY.md](../../templates/PROGRESS_GLOSSARY.md)
 
 ## Addendum
@@ -21,7 +22,7 @@ Links:
     - Reason: requires a real Linux host with Docker; will be captured in the integration testing PR.
   - ~~CI publish run URL + published image tags.~~
     - Reason: requires a main-branch run (and Docker Hub secrets); will be recorded in the integration testing PR.
-- 2026-01-20: Completed deferred Step 3/4 validation evidence (see `docs/INTEGRATION_TEST.md`).
+- 2026-01-20: Completed deferred Step 3/4 validation evidence (see `docs/runbooks/INTEGRATION_TEST.md`).
   - Linux exploratory smoke evidence (OrbStack engine): `$CODEX_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
   - CI publish + Docker Hub tags evidence: `$CODEX_HOME/out/ci-publish-verification-20260120-081548.log`
   - CI publish + GHCR tags evidence: `$CODEX_HOME/out/ghcr-verification-20260120-084948.log`
@@ -184,18 +185,18 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [x] Required migrations / backfill scripts and documentation exist: None (no DB/migrations in this repo).
 - [x] Step 3: Validation / testing
   - Work Items:
-    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `docs/INTEGRATION_TEST.md`).
-    - [x] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output (evidence: `docs/INTEGRATION_TEST.md`).
+    - [x] Run macOS smoke suite (help, ls, create, exec, rm, reset) and capture output (evidence: `docs/runbooks/INTEGRATION_TEST.md`).
+    - [x] Run Linux exploratory smoke commands (with `--user 0:0` fallback) and capture output (evidence: `docs/runbooks/INTEGRATION_TEST.md`).
     - [x] Verify security docs mention docker.sock risk and token visibility (`docker inspect`) (see `README.md`).
   - Artifacts:
-    - `docs/INTEGRATION_TEST.md`
-    - Evidence logs under `$CODEX_HOME/out/` (see `docs/INTEGRATION_TEST.md`)
+    - `docs/runbooks/INTEGRATION_TEST.md`
+    - Evidence logs under `$CODEX_HOME/out/` (see `docs/runbooks/INTEGRATION_TEST.md`)
   - Exit Criteria:
-    - [x] Validation commands executed with results recorded: see `docs/INTEGRATION_TEST.md`.
+    - [x] Validation commands executed with results recorded: see `docs/runbooks/INTEGRATION_TEST.md`.
     - [x] Run with real repos and representative samples:
       - public: `graysurf/codex-kit`
       - private: `OWNER/PRIVATE_REPO` (with `GH_TOKEN`) and rerun after any fix
-    - [x] Traceable evidence exists: smoke logs + CI run URL + published image tags (see `docs/INTEGRATION_TEST.md`).
+    - [x] Traceable evidence exists: smoke logs + CI run URL + published image tags (see `docs/runbooks/INTEGRATION_TEST.md`).
 - [x] Step 4: Release / wrap-up
   - Work Items:
     - [x] Add `.github/workflows/publish.yml` to buildx multi-arch and push tags on main.
@@ -208,7 +209,7 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - Published image tags and workflow run link
   - Exit Criteria:
     - [x] Versioning and changes recorded: `latest` + `sha-<short>` (optional semver later).
-    - [x] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags (see `docs/INTEGRATION_TEST.md`).
+    - [x] Release actions completed: GitHub Actions publishes multi-arch images; record workflow run URL and image tags (see `docs/runbooks/INTEGRATION_TEST.md`).
     - [x] Documentation completed and entry points updated: `README.md`, `docs/BUILD.md`, `docs/progress/README.md`.
     - [x] Cleanup completed: set this file to DONE and move to `docs/progress/archived/` when complete.
 
