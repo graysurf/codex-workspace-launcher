@@ -6,7 +6,8 @@
 
 Links:
 
-- PR: https://github.com/graysurf/codex-workspace-launcher/pull/5
+- PR: https://github.com/graysurf/codex-workspace-launcher/pull/6
+- Planning PR: https://github.com/graysurf/codex-workspace-launcher/pull/5
 - Upstream:
   - codex-kit launcher contract migration: https://github.com/graysurf/codex-kit/pull/64
   - zsh-kit wrapper call-through migration: https://github.com/graysurf/zsh-kit/pull/58
