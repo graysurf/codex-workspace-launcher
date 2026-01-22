@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zsh (for zsh -n)
+        run: |
+          if ! command -v zsh >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zsh
+          fi
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Add shellcheck matcher
+        run: |
+          echo "::add-matcher::.github/matchers/shellcheck.json"
+
+      - name: Shell syntax (bash + zsh)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t bash_files < <(git ls-files 'scripts/*.sh' 'scripts/*.bash')
+          if (( ${#bash_files[@]} )); then
+            bash -n "${bash_files[@]}"
+          fi
+
+          mapfile -t zsh_files < <(
+            git ls-files \
+              'scripts/*.zsh' \
+              'scripts/bundles/*.zsh' \
+              'bin/codex-workspace'
+          )
+          if (( ${#zsh_files[@]} )); then
+            zsh -n "${zsh_files[@]}"
+          fi
+
+      - name: Shellcheck (bash scripts)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t bash_files < <(git ls-files 'scripts/*.sh' 'scripts/*.bash')
+          if (( ${#bash_files[@]} )); then
+            shellcheck -f gcc "${bash_files[@]}"
+          fi
+
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zsh (for wrapper smoke tests)
+        run: |
+          if ! command -v zsh >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zsh
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dev deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Ruff format (check)
+        run: |
+          python -m ruff format --check .
+
+      - name: Ruff lint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if python -m ruff check --help | grep -q -- '--output-format'; then
+            python -m ruff check --output-format=github .
+          elif python -m ruff check --help | grep -q -- '--format'; then
+            python -m ruff check --format=github .
+          else
+            python -m ruff check .
+          fi
+
+      - name: Add mypy matcher
+        run: |
+          echo "::add-matcher::.github/matchers/mypy.json"
+
+      - name: Mypy
+        run: |
+          python -m mypy --show-column-numbers --no-color-output tests
+
+      - name: Add pyright matcher
+        run: |
+          echo "::add-matcher::.github/matchers/pyright.json"
+
+      - name: Pyright
+        run: |
+          python -m pyright -p .
+
+      - name: Pytest (no e2e)
+        run: |
+          python -m pytest --ignore=tests/e2e -m "not e2e" -k "not test_pyright"
+
+      - name: Script coverage summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            exit 0
+          fi
+
+          if [[ -f out/tests/script-coverage/summary.md ]]; then
+            cat out/tests/script-coverage/summary.md >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Script coverage (functional)" >>"$GITHUB_STEP_SUMMARY"
+            echo "" >>"$GITHUB_STEP_SUMMARY"
+            echo "_No script coverage report found at out/tests/script-coverage/summary.md._" >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload pytest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-artifacts
+          if-no-files-found: warn
+          path: |
+            out/tests/script-regression/summary.json
+            out/tests/script-regression/logs
+            out/tests/script-smoke/summary.json
+            out/tests/script-smoke/logs
+            out/tests/script-coverage/summary.json
+            out/tests/script-coverage/summary.md
