@@ -207,18 +207,19 @@ Low-level launcher (`codex-kit` script; invoked by the zsh layer):
 ## Development
 
 Local builds (custom tags): [`docs/BUILD.md`](docs/BUILD.md)
+Upstream pin bumps: [`docs/runbooks/VERSION_BUMPS.md`](docs/runbooks/VERSION_BUMPS.md)
 
 Publishing (CI):
 
 - Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
-- Triggers: PRs build only; pushes to `main` publish images
+- Triggers: PRs build only; pushes to `docker` publish images
 - Registries:
   - Docker Hub: `graysurf/codex-workspace-launcher` (publish requires secrets)
   - GHCR: `ghcr.io/graysurf/codex-workspace-launcher` (publish uses `GITHUB_TOKEN`)
 - Tags: `latest`, `sha-<short>`
 - Secrets (GitHub Actions; Docker Hub only): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
-- Ref pinning: the workflow resolves `graysurf/zsh-kit@main` and `graysurf/codex-kit@main` to commit SHAs and
-  builds with those SHAs (reproducible published images).
+- Ref pinning: `VERSIONS.env` is the single source of truth for pinned `zsh-kit` + `codex-kit` refs.
+  - Bump pins via: `docs/runbooks/VERSION_BUMPS.md`
 
 ## Docs
 

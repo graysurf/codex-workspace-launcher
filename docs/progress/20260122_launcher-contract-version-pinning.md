@@ -2,7 +2,7 @@
 
 | Status | Created | Updated |
 | --- | --- | --- |
-| DRAFT | 2026-01-22 | 2026-01-22 |
+| IN PROGRESS | 2026-01-22 | 2026-01-22 |
 
 Links:
 
@@ -13,6 +13,7 @@ Links:
 - Docs:
   - [docs/DESIGN.md](../DESIGN.md)
   - [docs/runbooks/INTEGRATION_TEST.md](../runbooks/INTEGRATION_TEST.md)
+  - [docs/runbooks/VERSION_BUMPS.md](../runbooks/VERSION_BUMPS.md)
 - Glossary: [docs/templates/PROGRESS_GLOSSARY.md](../templates/PROGRESS_GLOSSARY.md)
 
 ## Addendum
@@ -101,10 +102,10 @@ Note: For intentionally deferred / not-do items in Step 0–3, use `- [ ] ~~like
     - [ ] Minimal reproducible verification commands are defined (docker + e2e gates): `docs/runbooks/VERSION_BUMPS.md`
 - [ ] Step 1: Minimum viable output (MVP)
   - Work Items:
-    - [ ] Add `VERSIONS.env` with pinned `ZSH_KIT_REF` + `CODEX_KIT_REF`.
-    - [ ] Update `.github/workflows/publish.yml` to use `VERSIONS.env` as the source of truth.
-    - [ ] Add traceability output (label or file) that exposes pinned refs in the built image.
-    - [ ] Add a bump runbook: `docs/runbooks/VERSION_BUMPS.md` (how to update pins, verify, and release).
+    - [x] Add `VERSIONS.env` with pinned `ZSH_KIT_REF` + `CODEX_KIT_REF`.
+    - [x] Update `.github/workflows/publish.yml` to use `VERSIONS.env` as the source of truth.
+    - [x] Add traceability output (label or file) that exposes pinned refs in the built image.
+    - [x] Add a bump runbook: `docs/runbooks/VERSION_BUMPS.md` (how to update pins, verify, and release).
   - Artifacts:
     - `VERSIONS.env`
     - `.github/workflows/publish.yml`

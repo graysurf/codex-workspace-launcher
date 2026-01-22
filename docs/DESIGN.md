@@ -218,6 +218,7 @@ Recommendation (macOS users can be Apple Silicon or Intel):
 - Multi-arch: `linux/amd64,linux/arm64`
 - Tags: `latest` + `sha-<short>` (or semver)
 - Build args: `ZSH_KIT_REF`, `CODEX_KIT_REF` (use commit SHAs for reproducibility)
+- Source of truth: `VERSIONS.env` (CI should build from the pinned pair)
 
 Example (manual):
 
