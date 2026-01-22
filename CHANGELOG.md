@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+- None
+
+### Changed
+- None
+
+### Fixed
+- None
+
+## v1.0.2 - 2026-01-22
+
+### Upstream pins
+- zsh-kit: aa964753efcea4466ee7789151eb81083ebc4d11
+- codex-kit: c244ea723abce70fc9045828f8b6c785bc597cce
+
 ### Changed
 - Remove `scripts/cws` shim; use `scripts/cws.bash` directly for executable mode.
 
