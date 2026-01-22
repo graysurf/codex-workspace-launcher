@@ -11,6 +11,10 @@
 
 Before submitting work, these must pass:
 
+- Shell syntax:
+  - bash: `bash -n $(git ls-files 'scripts/*.sh' 'scripts/*.bash')`
+  - zsh: `zsh -n $(git ls-files 'scripts/*.zsh' 'scripts/bundles/*.zsh' 'bin/codex-workspace')`
+- Shell lint (requires `shellcheck`): `shellcheck $(git ls-files 'scripts/*.sh' 'scripts/*.bash')`
 - Format (check): `.venv/bin/python -m ruff format --check .` (fix with `.venv/bin/python -m ruff format .`)
 - Lint: `.venv/bin/python -m ruff check .`
 - Smoke tests (no real Docker): `.venv/bin/python -m pytest -m script_smoke`

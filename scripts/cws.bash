@@ -45,14 +45,18 @@ _cws_detect_gh_target_for_create() {
   local repo=""
 
   local i=0
+  local arg=""
+  local arg_index=0
   while (( i < $# )); do
-    local arg="${@:i+1:1}"
+    arg_index=$((i + 1))
+    arg="${!arg_index-}"
     case "$arg" in
       -h|--help)
         return 1
         ;;
       --private-repo)
-        private_repo="${@:i+2:1}"
+        local private_repo_index=$((i + 2))
+        private_repo="${!private_repo_index-}"
         (( i += 2 ))
         ;;
       --private-repo=*)
@@ -101,14 +105,18 @@ _cws_detect_gh_host_for_auth_github() {
   local gh_host="${GITHUB_HOST:-github.com}"
 
   local i=0
+  local arg=""
+  local arg_index=0
   while (( i < $# )); do
-    local arg="${@:i+1:1}"
+    arg_index=$((i + 1))
+    arg="${!arg_index-}"
     case "$arg" in
       -h|--help)
         return 1
         ;;
       --host)
-        gh_host="${@:i+2:1}"
+        local gh_host_index=$((i + 2))
+        gh_host="${!gh_host_index-}"
         break
         ;;
       --host=*)
@@ -187,8 +195,9 @@ cws() {
       esac
 
       local i=1
+      local arg=""
       while (( i <= $# )); do
-        local arg="${@:i:1}"
+        arg="${!i-}"
         case "$arg" in
           --gpg)
             want_gpg=1
@@ -211,8 +220,9 @@ cws() {
     elif [[ "$subcmd" == "auth" && "$provider" == "gpg" ]]; then
       want_gpg=1
       local i=1
+      local arg=""
       while (( i <= $# )); do
-        local arg="${@:i:1}"
+        arg="${!i-}"
         case "$arg" in
           --key)
             has_explicit_key=1
@@ -296,6 +306,15 @@ _cws_workspaces() {
   docker ps -a --filter label=codex-kit.workspace=1 --format '{{.Names}}' 2>/dev/null || true
 }
 
+_cws_compgen_words() {
+  local words="${1:-}"
+  local cur="${2:-}"
+  COMPREPLY=()
+  while IFS= read -r item; do
+    COMPREPLY+=("$item")
+  done < <(compgen -W "$words" -- "$cur")
+}
+
 _cws_complete() {
   local cur prev subcmd
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -303,7 +322,7 @@ _cws_complete() {
   subcmd="${COMP_WORDS[1]:-}"
 
   if [[ $COMP_CWORD -eq 1 ]]; then
-    COMPREPLY=($(compgen -W "auth create ls exec rm reset tunnel -h --help" -- "$cur"))
+    _cws_compgen_words "auth create ls exec rm reset tunnel -h --help" "$cur"
     return 0
   fi
 
@@ -312,12 +331,12 @@ _cws_complete() {
       local provider="${COMP_WORDS[2]:-}"
 
       if [[ $COMP_CWORD -eq 2 ]]; then
-        COMPREPLY=($(compgen -W "codex github gpg -h --help" -- "$cur"))
+        _cws_compgen_words "codex github gpg -h --help" "$cur"
         return 0
       fi
 
       if [[ "$prev" == "--container" || "$prev" == "--name" ]]; then
-        COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+        _cws_compgen_words "$(_cws_workspaces)" "$cur"
         return 0
       fi
 
@@ -346,7 +365,7 @@ _cws_complete() {
       fi
 
       if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "$opts" -- "$cur"))
+        _cws_compgen_words "$opts" "$cur"
         return 0
       fi
 
@@ -366,7 +385,7 @@ _cws_complete() {
       done
 
       if [[ -z "$container2" ]]; then
-        COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+        _cws_compgen_words "$(_cws_workspaces)" "$cur"
       else
         COMPREPLY=()
       fi
@@ -377,11 +396,11 @@ _cws_complete() {
         COMPREPLY=()
         return 0
       fi
-      COMPREPLY=($(compgen -W "--no-extras --private-repo --no-work-repos --name -h --help" -- "$cur"))
+      _cws_compgen_words "--no-extras --private-repo --no-work-repos --name -h --help" "$cur"
       return 0
       ;;
     ls)
-      COMPREPLY=($(compgen -W "-h --help" -- "$cur"))
+      _cws_compgen_words "-h --help" "$cur"
       return 0
       ;;
     exec)
@@ -405,7 +424,7 @@ _cws_complete() {
       done
 
       if [[ -z "$container" ]]; then
-        COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+        _cws_compgen_words "$(_cws_workspaces)" "$cur"
       else
         COMPREPLY=()
       fi
@@ -419,9 +438,9 @@ _cws_complete() {
       done
 
       if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "--all --yes -h --help" -- "$cur"))
+        _cws_compgen_words "--all --yes -h --help" "$cur"
       elif [[ $has_all -eq 0 ]]; then
-        COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+        _cws_compgen_words "$(_cws_workspaces)" "$cur"
       else
         COMPREPLY=()
       fi
@@ -429,11 +448,11 @@ _cws_complete() {
       ;;
     reset)
       if [[ $COMP_CWORD -eq 2 ]]; then
-        COMPREPLY=($(compgen -W "repo work-repos opt-repos private-repo -h --help" -- "$cur"))
+        _cws_compgen_words "repo work-repos opt-repos private-repo -h --help" "$cur"
         return 0
       fi
       if [[ $COMP_CWORD -eq 3 ]]; then
-        COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+        _cws_compgen_words "$(_cws_workspaces)" "$cur"
         return 0
       fi
       COMPREPLY=()
@@ -461,9 +480,9 @@ _cws_complete() {
 
       if [[ -z "$container2" ]]; then
         if [[ "$cur" == -* ]]; then
-          COMPREPLY=($(compgen -W "--detach --name -h --help" -- "$cur"))
+          _cws_compgen_words "--detach --name -h --help" "$cur"
         else
-          COMPREPLY=($(compgen -W "$(_cws_workspaces)" -- "$cur"))
+          _cws_compgen_words "$(_cws_workspaces)" "$cur"
         fi
       else
         COMPREPLY=()
