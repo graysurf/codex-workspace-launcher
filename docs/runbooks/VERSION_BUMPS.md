@@ -122,6 +122,21 @@ CWS_E2E=1 \
   .venv/bin/python -m pytest -m e2e tests/e2e/test_cws_cli_cases.py
 ```
 
+Recommended: run the wrapper flow tests (real Docker; creates workspaces and cleans them up):
+
+```sh
+CWS_E2E=1 \
+  CWS_AUTH=none \
+  CWS_E2E_IMAGE=codex-workspace-launcher:local \
+  CWS_E2E_PUBLIC_REPO=graysurf/codex-kit \
+  .venv/bin/python -m pytest -m e2e \
+    tests/e2e/test_cws_cli_plan.py \
+    tests/e2e/test_cws_bash_plan.py \
+    tests/e2e/test_cws_zsh_plan.py
+```
+
+Artifacts are written under `out/tests/e2e/`.
+
 Notes:
 
 - Full matrix: `CWS_E2E=1 CWS_E2E_FULL=1 .venv/bin/python -m pytest -m e2e`
