@@ -1,7 +1,11 @@
 # Version bumps (upstream pins)
 
-This repo vendors `zsh-kit` + `codex-kit` into the launcher image at build time. `VERSIONS.env` is the single source
-of truth for which upstream commits are used for published images.
+This repo uses a pinned upstream pair in `VERSIONS.env`:
+
+- `ZSH_KIT_REF`: used to regenerate the bundled `bin/codex-workspace` (zsh-kit `codex-workspace` feature)
+- `CODEX_KIT_REF`: used at image build time (vendored `/opt/codex-kit`, which provides the low-level launcher)
+
+Goal: bumps are **reviewable**, **reproducible**, and validated with this repo’s real-Docker E2E suite.
 
 Goal: bumps are **reviewable**, **reproducible**, and validated with this repo’s real-Docker E2E suite.
 
@@ -30,6 +34,20 @@ Edit `VERSIONS.env` at repo root:
 - `ZSH_KIT_REF=<sha>`
 - `CODEX_KIT_REF=<sha>`
 
+## Regenerate the bundled wrapper (required)
+
+When `ZSH_KIT_REF` changes, regenerate and commit the bundled wrapper:
+
+```sh
+./scripts/generate_codex_workspace_bundle.sh
+```
+
+Sanity check:
+
+```sh
+head -n 5 ./bin/codex-workspace
+```
+
 ## Build a local image using the pinned refs
 
 ```sh
@@ -47,7 +65,7 @@ docker build -t codex-workspace-launcher:local \
 ## Verify the built image contains the pins
 
 ```sh
-docker run --rm --entrypoint cat codex-workspace-launcher:local /opt/zsh-kit/.ref
+docker run --rm --entrypoint cat codex-workspace-launcher:local /opt/zsh-kit.ref
 docker run --rm --entrypoint cat codex-workspace-launcher:local /opt/codex-kit/.ref
 ```
 
