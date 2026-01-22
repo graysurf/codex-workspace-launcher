@@ -7,12 +7,28 @@ This repo uses a pinned upstream pair in `VERSIONS.env`:
 
 Goal: bumps are **reviewable**, **reproducible**, and validated with this repo’s real-Docker E2E suite.
 
-Goal: bumps are **reviewable**, **reproducible**, and validated with this repo’s real-Docker E2E suite.
-
 ## When to bump
 
 - You merged a contract change in `zsh-kit` and/or `codex-kit` that must ship in the launcher image.
 - You need to roll forward/back to fix a regression or pin a known-good pair.
+
+## Automated bump (recommended)
+
+Use the helper script to update pins, regenerate the bundle, run checks, build, and verify the image:
+
+```sh
+./scripts/bump_versions.sh --from-main
+```
+
+Pin explicitly (still resolves to full commit SHAs and writes them into `VERSIONS.env`):
+
+```sh
+./scripts/bump_versions.sh \
+  --zsh-kit-ref <ref|sha> \
+  --codex-kit-ref <ref|sha>
+```
+
+Tip: use `--skip-docker` when you only want to update files + run tests locally.
 
 ## Choose new pins
 
