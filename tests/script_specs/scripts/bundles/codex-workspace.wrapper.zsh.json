@@ -1,0 +1,12 @@
+{
+  "smoke": [
+    {
+      "name": "load",
+      "command": ["zsh", "-f", "scripts/bundles/codex-workspace.wrapper.zsh"],
+      "timeout_sec": 10,
+      "expect": {
+        "exit_codes": [0]
+      }
+    }
+  ]
+}

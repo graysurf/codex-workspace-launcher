@@ -1,0 +1,13 @@
+{
+  "smoke": [
+    {
+      "name": "help",
+      "command": ["bash", "scripts/release_prepare_changelog.sh", "--help"],
+      "timeout_sec": 10,
+      "expect": {
+        "exit_codes": [0],
+        "stderr_regex": "(?s)usage:.*scripts/release_prepare_changelog\\.sh"
+      }
+    }
+  ]
+}
