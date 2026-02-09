@@ -294,7 +294,7 @@ def write_script_coverage_reports(
         groups.setdefault(script_group(script), []).append(script)
 
     group_rows: list[dict[str, object]] = []
-    for group, scripts in sorted(groups.items(), key=lambda x: (x[0])):
+    for group, scripts in sorted(groups.items(), key=lambda x: x[0]):
         scripts_set = set(scripts)
         group_rows.append(
             {
