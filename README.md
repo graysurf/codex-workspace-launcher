@@ -1,6 +1,6 @@
 # agent-workspace-launcher
 
-Launch a `Codex-ready` workspace for any repo with Docker.
+Launch an `agent-ready` workspace for any repo with Docker.
 
 - Workspace image includes `rg`, `gh`, `jq`, `git`, and other common CLI tools
 - VS Code friendly: Dev Containers attach + optional VS Code tunnel
@@ -93,8 +93,9 @@ export GH_TOKEN=...
 aws create OWNER/PRIVATE_REPO
 ```
 
-Security note: `create` persists `GH_TOKEN`/`GITHUB_TOKEN` into workspace container env (visible via `docker inspect`).
-Treat workspace containers as sensitive.
+Security note: `aws` forwards `GH_TOKEN`/`GITHUB_TOKEN` into the launcher container runtime.
+`create`/`reset`/`auth github` use the token for one-off auth/clone steps and do not persist
+`GH_TOKEN`/`GITHUB_TOKEN` as default workspace container env vars.
 
 ## DooD host-path rules
 
@@ -115,15 +116,17 @@ docker run --rm -it \
 
 ## Optional host mounts
 
-Mount Codex secrets/profile material if your workflow needs host-side profile sync:
+Mount Codex secrets/profile material if your workflow needs profile-based Codex auth sync:
 
 ```sh
-docker run --rm -it \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e HOME="$HOME" \
-  -v "$HOME/.config/AGENT_secrets:$HOME/.config/AGENT_secrets:rw" \
-  graysurf/agent-workspace-launcher:latest \
-  create OWNER/REPO
+AWS_DOCKER_ARGS=(
+  -e HOME="$HOME"
+  -e CODEX_SECRET_DIR="$HOME/.config/codex_secrets"
+  -v "$HOME/.config/codex_secrets:$HOME/.config/codex_secrets:ro"
+)
+
+# then:
+aws auth codex --profile <profile> <name|container>
 ```
 
 ## Configuration
@@ -134,7 +137,7 @@ docker run --rm -it \
 | --- | --- | --- |
 | `AWS_IMAGE` | `graysurf/agent-workspace-launcher:latest` | Launcher image tag |
 | `AWS_DOCKER_ARGS` | (empty) | Extra `docker run` args for the launcher container |
-| `AWS_AUTH` | `auto` | `auto\|env\|none`; token source policy for GitHub auth flows |
+| `AWS_AUTH` | `auto` | `auto\|env\|none`; wrapper token policy for GitHub flows (keyring reuse vs env-only) |
 
 ### Launcher env (`agent-workspace`)
 
