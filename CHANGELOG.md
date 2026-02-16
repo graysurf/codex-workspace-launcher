@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v1.1.0 - 2026-02-17
+
+### Upstream pins
+- agent-kit: 0ae695f18f672bf1f418c068a5e3124a26ecfb1a
+
+### Changed
+- Split release automation into tag-driven Docker and Brew channels.
+- Pin launcher image builds to `agent-kit` commit `0ae695f18f672bf1f418c068a5e3124a26ecfb1a`.
+
+### Fixed
+- Normalize `ws-` workspace aliases during container resolution so `aws exec --user/--root` targets existing containers.
+
 ## v1.0.7 - 2026-02-09
 
 ### Upstream pins
