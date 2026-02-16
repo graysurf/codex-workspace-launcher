@@ -45,12 +45,7 @@ jobs:
             bash -n "${bash_files[@]}"
           fi
 
-          mapfile -t zsh_files < <(
-            git ls-files \
-              'scripts/*.zsh' \
-              'scripts/bundles/*.zsh' \
-              'bin/agent-workspace'
-          )
+          mapfile -t zsh_files < <(git ls-files 'scripts/*.zsh')
           if (( ${#zsh_files[@]} )); then
             zsh -n "${zsh_files[@]}"
           fi
@@ -64,6 +59,31 @@ jobs:
           if (( ${#bash_files[@]} )); then
             shellcheck -f gcc "${bash_files[@]}"
           fi
+
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Rust format (check)
+        run: cargo fmt --all -- --check
+
+      - name: Rust build (check)
+        run: cargo check --workspace
+
+      - name: Rust lint (clippy)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test -p agent-workspace
 
   python:
     runs-on: ubuntu-latest

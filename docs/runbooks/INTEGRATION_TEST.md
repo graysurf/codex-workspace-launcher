@@ -7,8 +7,8 @@ This checklist is for validating the end-to-end experience after merging to `mai
 
 ## What to verify
 
-- [x] macOS quickstart smoke (zsh wrapper via `cws`; no local build)
-- [x] macOS quickstart smoke (bash wrapper via `cws`; no local build)
+- [x] macOS quickstart smoke (zsh wrapper via `aws`; no local build)
+- [x] macOS quickstart smoke (bash wrapper via `aws`; no local build)
 - [x] Linux exploratory smoke run (captures logs)
 - [x] CI publish run URL recorded (on `main`)
 - [x] Docker Hub tags exist (`latest`, `sha-<short>`)
@@ -33,27 +33,27 @@ docker info >/dev/null
 zsh wrapper:
 
 ```sh
-source ./scripts/cws.zsh
+source ./scripts/aws.zsh
 
 # Pulls the launcher image and prints help.
-cws --help
+aws --help
 
 # Verifies the launcher container can talk to the host daemon.
-cws ls
+aws ls
 
 # End-to-end create (public repo).
-cws create graysurf/agent-kit
+aws create graysurf/agent-kit
 
 # Copy the printed workspace name, then:
-cws exec <name|container> git -C /work/graysurf/agent-kit status
-cws rm <name|container> --yes
+aws exec <name|container> git -C /work/graysurf/agent-kit status
+aws rm <name|container> --yes
 ```
 
 bash wrapper (run in a separate bash shell to avoid mixing wrappers):
 
 ```sh
-source ./scripts/cws.bash
-cws --help
+source ./scripts/aws.bash
+aws --help
 ```
 
 Capture evidence:
@@ -62,8 +62,24 @@ Capture evidence:
 
 Evidence (2026-01-20):
 
-- `$AGENT_HOME/out/macos-quickstart-smoke-20260120-080236.log`
-- `$AGENT_HOME/out/macos-quickstart-create-20260120-080236.log`
+- `$CODEX_HOME/out/macos-quickstart-smoke-20260120-080236.log`
+- `$CODEX_HOME/out/macos-quickstart-create-20260120-080236.log`
+
+## Automated E2E sanity (AWS naming)
+
+Use the new AWS test/env naming for a minimal real-Docker check:
+
+```sh
+AWS_E2E=1 \
+  AWS_E2E_CASE=help \
+  .venv/bin/python -m pytest -m e2e tests/e2e/test_aws_cli_cases.py
+```
+
+Optional full matrix:
+
+```sh
+AWS_E2E=1 AWS_E2E_FULL=1 .venv/bin/python -m pytest -m e2e
+```
 
 ## Linux exploratory smoke (do not claim support yet)
 
@@ -99,8 +115,8 @@ Capture evidence:
 
 Evidence (2026-01-20; OrbStack on macOS):
 
-- `$AGENT_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
-- `$AGENT_HOME/out/linux-exploratory-create-orbstack-20260120-085812.log`
+- `$CODEX_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
+- `$CODEX_HOME/out/linux-exploratory-create-orbstack-20260120-085812.log`
 
 ## CI publish verification
 
@@ -125,8 +141,8 @@ Expected platforms include `linux/amd64` and `linux/arm64`.
 Evidence (2026-01-20):
 
 - Docker Hub verification (before GHCR publish): https://github.com/graysurf/agent-workspace-launcher/actions/runs/21154177325
-- Docker Hub inspect log: `$AGENT_HOME/out/ci-publish-verification-20260120-081548.log`
+- Docker Hub inspect log: `$CODEX_HOME/out/ci-publish-verification-20260120-081548.log`
 - PR build (no publish): https://github.com/graysurf/agent-workspace-launcher/actions/runs/21155245507
 - GHCR verification (push to `main`): https://github.com/graysurf/agent-workspace-launcher/actions/runs/21155498181
-- GHCR inspect log: `$AGENT_HOME/out/ghcr-verification-20260120-084948.log`
-- GHCR not found (pre-merge check): `$AGENT_HOME/out/ghcr-verification-20260120-083359.log`
+- GHCR inspect log: `$CODEX_HOME/out/ghcr-verification-20260120-084948.log`
+- GHCR not found (pre-merge check): `$CODEX_HOME/out/ghcr-verification-20260120-083359.log`

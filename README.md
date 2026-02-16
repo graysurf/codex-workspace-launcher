@@ -1,141 +1,108 @@
 # agent-workspace-launcher
 
-Launch a `Codex-ready` workspace for any repo — `prompts`, `skills`, and common CLI tools included.
+Launch a `Codex-ready` workspace for any repo with Docker.
 
-- Workspace includes `rg`, `gh`, `jq`, `git` (and more) so you can start collaborating with Codex immediately
+- Workspace image includes `rg`, `gh`, `jq`, `git`, and other common CLI tools
 - VS Code friendly: Dev Containers attach + optional VS Code tunnel
-- Optional `cws` wrapper (zsh + bash, with completion) so you don’t repeat `docker run ...`
-- Under the hood: powered by [zsh-kit](https://github.com/graysurf/zsh-kit) (bundled into `bin/agent-workspace`) and [agent-kit](https://github.com/graysurf/agent-kit) (vendored into the image; published images pin SHAs)
+- Optional host wrapper command `aws` (zsh + bash, with completion)
+- Runtime architecture: Rust `agent-workspace` CLI inside the launcher image, plus `agent-kit` low-level workspace runtime
 
-This project packages the `agent-workspace` CLI (`auth/create/ls/rm/exec/reset/tunnel`) as a Docker image — no local
-setup required.
+This project packages the `agent-workspace` subcommands (`auth/create/ls/rm/exec/reset/tunnel`) as a Docker image.
+No local SDK checkout is required.
 
 This is **Docker-outside-of-Docker (DooD)**: the launcher container talks to your host Docker daemon via
-`/var/run/docker.sock` and creates **workspace containers** on the host (default runtime image:
-`graysurf/agent-env:linuxbrew`).
+`/var/run/docker.sock` and creates workspace containers on the host.
 
 ## Requirements
 
-- Docker Desktop / OrbStack (macOS). Linux may work but is not fully smoke-tested yet.
-- You can mount the Docker socket: `-v /var/run/docker.sock:/var/run/docker.sock`
+- Docker Desktop / OrbStack (macOS recommended)
+- Docker socket mount support: `-v /var/run/docker.sock:/var/run/docker.sock`
 
 ## Quickstart
 
-Use the provided `cws` wrapper (recommended):
+Use the `aws` wrapper (recommended):
 
-- zsh: `source ./scripts/cws.zsh` (completion registers once `compinit` is available; see [`scripts/cws.zsh`](scripts/cws.zsh))
-- bash: `source ./scripts/cws.bash` (see [`scripts/cws.bash`](scripts/cws.bash))
-- executable: put `./scripts/cws.bash` on your `PATH` (example: `cp ./scripts/cws.bash ~/.local/bin/cws`; see [`scripts/cws.bash`](scripts/cws.bash))
+- zsh: `source ./scripts/aws.zsh`
+- bash: `source ./scripts/aws.bash`
+- executable mode: put `./scripts/aws.bash` on your `PATH` (example: `cp ./scripts/aws.bash ~/.local/bin/aws`)
+- shorthand aliases are also available after sourcing: `aw`, `awc`, `awl`, `awe`, `awr`, `awm`, `awt` (and `awa*` for auth)
 
 Without cloning (zsh):
 
 ```sh
 mkdir -p "$HOME/.config/agent-workspace-launcher"
-curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/cws.zsh \
-  -o "$HOME/.config/agent-workspace-launcher/cws.zsh"
-source "$HOME/.config/agent-workspace-launcher/cws.zsh"
+curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/aws.zsh \
+  -o "$HOME/.config/agent-workspace-launcher/aws.zsh"
+source "$HOME/.config/agent-workspace-launcher/aws.zsh"
 ```
 
 Without cloning (bash):
 
 ```sh
 mkdir -p "$HOME/.config/agent-workspace-launcher"
-curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/cws.bash \
-  -o "$HOME/.config/agent-workspace-launcher/cws.bash"
-source "$HOME/.config/agent-workspace-launcher/cws.bash"
+curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/aws.bash \
+  -o "$HOME/.config/agent-workspace-launcher/aws.bash"
+source "$HOME/.config/agent-workspace-launcher/aws.bash"
 ```
 
-Customize defaults (optional):
+Configure wrapper defaults (optional):
 
 ```sh
-# Extra docker-run args (zsh/bash array form; preserves quoting)
-CWS_DOCKER_ARGS=(
+AWS_DOCKER_ARGS=(
   -e HOME="$HOME"
   -v "$HOME/.config:$HOME/.config:ro"
 )
-
-# Override the image tag
-CWS_IMAGE="graysurf/agent-workspace-launcher:latest"
+AWS_IMAGE="graysurf/agent-workspace-launcher:latest"
 ```
 
-Want to build locally and use a custom image tag? See [`docs/BUILD.md`](docs/BUILD.md).
-
-Create a workspace (public repo):
+Create a workspace:
 
 ```sh
-cws create OWNER/REPO
+aws create OWNER/REPO
 ```
-
-The `create` output prints:
-
-- `workspace: <container>`
-- `path: /work/<owner>/<repo>`
 
 Common operations:
 
 ```sh
-cws --help
-cws ls
-cws auth github <name|container>
-cws exec <name|container>
-cws rm <name|container> --yes
-cws rm --all --yes
+aws --help
+aws ls
+aws auth github <name|container>
+aws exec <name|container>
+aws rm <name|container> --yes
+aws rm --all --yes
 ```
 
-Note: you can also define your own small wrapper instead of sourcing scripts, e.g.
-`cws(){ docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -e GH_TOKEN -e GITHUB_TOKEN graysurf/agent-workspace-launcher:latest "$@"; }`
-
-## Working in the workspace
-
-- The repo lives in Docker named volumes (not a host bind mount).
-- Use `exec` to enter the container, or attach with VS Code Dev Containers.
-
-Run a command in the workspace:
+Direct `docker run` is also supported:
 
 ```sh
-cws exec <name|container> git status
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  graysurf/agent-workspace-launcher:latest \
+  create OWNER/REPO
 ```
-
-Interactive shell:
-
-```sh
-cws exec <name|container>
-```
-
-VS Code Dev Containers:
-
-- `Cmd/Ctrl+Shift+P` → “Dev Containers: Attach to Running Container…” → select the workspace container.
-
-Exec gotcha:
-
-- `agent-workspace exec <name> -- <cmd>` is currently **not supported** (it will try to run `--`).
-- Use `agent-workspace exec <name> <cmd...>` instead.
 
 ## Private repos (GitHub)
 
-If you have `gh` logged in on the host, `cws create/reset/auth github` will automatically reuse that token
-(keyring) when `GH_TOKEN`/`GITHUB_TOKEN` are not set.
+If `gh` is logged in on the host, `aws create/reset/auth github` can reuse that keyring token when
+`GH_TOKEN`/`GITHUB_TOKEN` are not set.
 
-Or pass a token into the launcher container:
+Or pass a token explicitly:
 
 ```sh
 export GH_TOKEN=...
-cws create OWNER/PRIVATE_REPO
+aws create OWNER/PRIVATE_REPO
 ```
 
-Security note: `create` persists `GH_TOKEN`/`GITHUB_TOKEN` into the workspace container environment to make `git`
-auth work inside the workspace. Treat the workspace container as sensitive and remove it when done.
+Security note: `create` persists `GH_TOKEN`/`GITHUB_TOKEN` into workspace container env (visible via `docker inspect`).
+Treat workspace containers as sensitive.
 
-## Docker-outside-of-Docker (DooD) rules
+## DooD host-path rules
 
-- The launcher container talks to the host Docker daemon via `-v /var/run/docker.sock:/var/run/docker.sock`.
+- Mounting `docker.sock` is root-equivalent host access.
 - Any `-v <src>:<dst>` executed by the launcher resolves `<src>` on the host.
-- When `agent-workspace` needs to read host files, the launcher container must also be able to `test -d` those
-  paths (so bind-mount them into the launcher using the same absolute path).
+- For host file reads, prefer same-path binds plus `HOME` passthrough.
 
-Recommended pattern: same-path binds + `HOME` passthrough.
-
-Example: enable host `~/.config` snapshot (copied into the workspace; not a bind mount):
+Example (`~/.config` snapshot):
 
 ```sh
 docker run --rm -it \
@@ -148,7 +115,7 @@ docker run --rm -it \
 
 ## Optional host mounts
 
-Secrets dir (recommended if you already have it; enables [codex-use](https://github.com/graysurf/zsh-kit/blob/0d48df3ef64fdef3641cfb7caf99be971c3286d8/scripts/_features/codex/_codex-secret.zsh#L396) syncing inside the workspace):
+Mount Codex secrets/profile material if your workflow needs host-side profile sync:
 
 ```sh
 docker run --rm -it \
@@ -159,73 +126,64 @@ docker run --rm -it \
   create OWNER/REPO
 ```
 
-## Configuration (env vars)
+## Configuration
 
-`agent-workspace` (zsh layer; user-facing CLI):
+### Host wrapper env (`aws`)
+
+| Env | Default | Purpose |
+| --- | --- | --- |
+| `AWS_IMAGE` | `graysurf/agent-workspace-launcher:latest` | Launcher image tag |
+| `AWS_DOCKER_ARGS` | (empty) | Extra `docker run` args for the launcher container |
+| `AWS_AUTH` | `auto` | `auto\|env\|none`; token source policy for GitHub auth flows |
+
+### Launcher env (`agent-workspace`)
 
 | Env | Default | Purpose |
 | --- | --- | --- |
 | `AGENT_WORKSPACE_PREFIX` | `codex-ws` | Workspace container name prefix |
-| `AGENT_WORKSPACE_PRIVATE_REPO` | (empty) | During `create`, clone/pull this repo into workspace `~/.private` |
-| `AGENT_WORKSPACE_LAUNCHER` | (in image) | Low-level launcher path (this image sets it to `/opt/agent-kit/docker/agent-env/bin/agent-workspace`) |
-| `AGENT_WORKSPACE_LAUNCHER_AUTO_DOWNLOAD` | `true` | Auto-download low-level launcher when missing (not used when `AGENT_WORKSPACE_LAUNCHER` is set) |
-| `AGENT_WORKSPACE_AUTH` | `auto` | `auto\|gh\|env\|none`: token source selection (`env` is most practical in the launcher container) |
-| `AGENT_WORKSPACE_GPG` | `none` | Default gpg import mode for `create` (`import\|none`) |
-| `AGENT_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` (keyid or fingerprint) |
-| `AGENT_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for the `tunnel` subcommand (<= 20 chars) |
-| `AGENT_WORKSPACE_OPEN_VSCODE_ENABLED` | (empty/false) | Auto-run `code --new-window` (typically not effective inside the launcher container) |
+| `AGENT_WORKSPACE_PRIVATE_REPO` | (empty) | During `create`, clone/pull into `~/.private` |
+| `AGENT_WORKSPACE_LAUNCHER` | auto-detect (`agent-env` then legacy `codex-env`) | Low-level launcher path override |
+| `AGENT_WORKSPACE_AUTH` | `auto` | Auth source policy |
+| `AGENT_WORKSPACE_GPG` | `none` | Default GPG import mode (`import\|none`) |
+| `AGENT_WORKSPACE_GPG_KEY` | (empty) | Default signing key for `auth gpg` |
+| `AGENT_WORKSPACE_TUNNEL_NAME` | (empty) | Tunnel name for `tunnel` |
 
-Additional variables used:
+Also used:
 
-- `GH_TOKEN` / `GITHUB_TOKEN`: clone private repos and configure git auth inside the workspace
-- `XDG_CACHE_HOME`: launcher auto-download cache root (only when auto-download is enabled)
-- `TMPDIR`: temp files
+- `GH_TOKEN` / `GITHUB_TOKEN`
+- `XDG_CACHE_HOME`
+- `TMPDIR`
 
-Low-level launcher (`agent-kit` script; invoked by the zsh layer):
+### Codex auth naming exception
 
-| Env | Default | Purpose |
-| --- | --- | --- |
-| `AGENT_ENV_IMAGE` | `graysurf/agent-env:linuxbrew` | Workspace runtime image |
-| `AGENT_WORKSPACE_PREFIX` | `codex-ws` | Workspace container name prefix |
-| `GITHUB_HOST` | `github.com` | Repo host (when using `OWNER/REPO` form) |
-| `DEFAULT_SECRETS_MOUNT` | `/home/agent/AGENT_secrets` | Default container mount path when `--secrets-dir` is used |
+For compatibility, Codex auth paths remain:
+
+- `CODEX_SECRET_DIR`
+- `CODEX_AUTH_FILE`
+
+These names are intentionally **not** renamed to `AWS_*`.
 
 ## Troubleshooting
 
-- Docker daemon not running: start Docker Desktop/OrbStack; verify `docker info`.
-- Linux `permission denied` on `/var/run/docker.sock`: try `--user 0:0` or add the docker socket group GID via
-  `--group-add ...`.
-- `exec` tries to run `--`: don’t put `--` after the container name.
-
-## Security notes
-
-- Mounting `docker.sock` is root-equivalent host access.
-- Persisted `GH_TOKEN`/`GITHUB_TOKEN` values are visible via `docker inspect` on the workspace containers.
+- Docker daemon not running: verify `docker info`.
+- Linux socket permission errors: try `--user 0:0` or `--group-add ...`.
+- `exec` with `--` as a separator may be treated as a literal argument; run without `--`.
 
 ## Development
 
-Local builds (custom tags): [`docs/BUILD.md`](docs/BUILD.md)
-Upstream pin bumps: [`docs/runbooks/VERSION_BUMPS.md`](docs/runbooks/VERSION_BUMPS.md)
+- Local builds: [docs/BUILD.md](docs/BUILD.md)
+- Architecture notes: [docs/DESIGN.md](docs/DESIGN.md)
+- User guides: [docs/guides/README.md](docs/guides/README.md)
+- Integration runbook: [docs/runbooks/INTEGRATION_TEST.md](docs/runbooks/INTEGRATION_TEST.md)
 
-Publishing (CI):
+Publishing:
 
 - Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
-- Triggers: PRs build only; pushes to `docker` publish images
-- Registries:
-  - Docker Hub: `graysurf/agent-workspace-launcher` (publish requires secrets)
-  - GHCR: `ghcr.io/graysurf/agent-workspace-launcher` (publish uses `GITHUB_TOKEN`)
+- Publish branch: `docker`
+- Registries: Docker Hub + GHCR
 - Tags: `latest`, `sha-<short>`
-- Secrets (GitHub Actions; Docker Hub only): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
-- Ref pinning: `VERSIONS.env` is the single source of truth for pinned `zsh-kit` + `agent-kit` refs.
-  - Bump pins via: `docs/runbooks/VERSION_BUMPS.md`
 
-## Docs
-
-- [docs/DESIGN.md](docs/DESIGN.md)
-- [docs/BUILD.md](docs/BUILD.md)
-- [docs/guides/README.md](docs/guides/README.md)
-
-## 🪪 License
+## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 

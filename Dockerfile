@@ -1,20 +1,24 @@
 ARG DOCKER_CLI_IMAGE="docker:27-cli"
 FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
+FROM rust:1-slim AS rust-builder
+WORKDIR /workspace
+
+COPY Cargo.toml Cargo.lock rust-toolchain.toml rustfmt.toml ./
+COPY crates/agent-workspace/Cargo.toml crates/agent-workspace/Cargo.toml
+COPY crates/agent-workspace/src crates/agent-workspace/src
+
+RUN cargo build --release --locked -p agent-workspace
+
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-ARG ZSH_KIT_REPO="https://github.com/graysurf/zsh-kit.git"
-ARG ZSH_KIT_REF="main"
-
 ARG AGENT_KIT_REPO="https://github.com/graysurf/agent-kit.git"
-ARG AGENT_KIT_REF="main"
+ARG AGENT_KIT_REF=""
 
 LABEL org.opencontainers.image.source="https://github.com/graysurf/agent-workspace-launcher" \
   org.opencontainers.image.title="agent-workspace-launcher" \
-  org.graysurf.zsh-kit.repo="$ZSH_KIT_REPO" \
-  org.graysurf.zsh-kit.ref="$ZSH_KIT_REF" \
   org.graysurf.agent-kit.repo="$AGENT_KIT_REPO" \
   org.graysurf.agent-kit.ref="$AGENT_KIT_REF"
 
@@ -31,20 +35,17 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
-
-COPY bin/agent-workspace /usr/local/bin/agent-workspace
-RUN chmod +x /usr/local/bin/agent-workspace
-
-RUN mkdir -p /opt \
-  && printf "%s\n" "$ZSH_KIT_REF" > /opt/zsh-kit.ref
+COPY --from=rust-builder /workspace/target/release/agent-workspace /usr/local/bin/agent-workspace
+COPY VERSIONS.env /tmp/VERSIONS.env
 
 RUN git init -b main /opt/agent-kit \
+  && resolved_ref="$AGENT_KIT_REF" \
+  && if [ -z "$resolved_ref" ]; then resolved_ref="$(awk -F= '/^AGENT_KIT_REF=/{print $2}' /tmp/VERSIONS.env | tail -n 1 | tr -d '\r')"; fi \
+  && if [ -z "$resolved_ref" ]; then echo "error: AGENT_KIT_REF missing (build-arg and VERSIONS.env)" >&2; exit 1; fi \
   && git -C /opt/agent-kit remote add origin "$AGENT_KIT_REPO" \
-  && git -C /opt/agent-kit fetch --depth 1 origin "$AGENT_KIT_REF" \
+  && git -C /opt/agent-kit fetch --depth 1 origin "$resolved_ref" \
   && git -C /opt/agent-kit checkout --detach FETCH_HEAD \
   && git -C /opt/agent-kit rev-parse HEAD >/opt/agent-kit/.ref \
-  && rm -rf /opt/agent-kit/.git
-
-ENV AGENT_WORKSPACE_LAUNCHER="/opt/agent-kit/docker/agent-env/bin/agent-workspace"
+  && rm -rf /opt/agent-kit/.git /tmp/VERSIONS.env
 
 ENTRYPOINT ["agent-workspace"]

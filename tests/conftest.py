@@ -87,8 +87,8 @@ def default_smoke_env(repo: Path) -> dict[str, str]:
             "PY_COLORS": "0",
             "GIT_PAGER": "cat",
             "PAGER": "cat",
-            "CWS_AUTH": "env",
-            "CWS_IMAGE": "graysurf/agent-workspace-launcher:latest",
+            "AWS_AUTH": "env",
+            "AWS_IMAGE": "graysurf/agent-workspace-launcher:latest",
         }
     )
 
@@ -128,8 +128,8 @@ def default_env(repo: Path) -> dict[str, str]:
             "PY_COLORS": "0",
             "GIT_PAGER": "cat",
             "PAGER": "cat",
-            "CWS_AUTH": "env",
-            "CWS_IMAGE": "graysurf/agent-workspace-launcher:latest",
+            "AWS_AUTH": "env",
+            "AWS_IMAGE": "graysurf/agent-workspace-launcher:latest",
         }
     )
 
@@ -162,9 +162,15 @@ def load_script_specs(spec_root: Path) -> dict[str, dict[str, Any]]:
 
 
 def discover_scripts() -> list[str]:
-    tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        text=True,
+    ).splitlines()
     scripts: list[str] = []
+    root = repo_root()
     for p in tracked:
+        if not (root / p).is_file():
+            continue
         if p.endswith(".md"):
             continue
         if p.startswith("scripts/") or (p.startswith("skills/") and "/scripts/" in p):

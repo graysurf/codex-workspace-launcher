@@ -1,20 +1,13 @@
 # Build guide (custom image tags)
 
-This guide is for users who want to **build the launcher image locally**, tag it, and point `cws` at that tag.
-
-Notes:
-
-- Primary target is macOS (Docker Desktop / OrbStack). Linux/WSL can work but may need extra Docker socket permissions.
-- The launcher image uses Docker-outside-of-Docker (DooD): it needs access to the host Docker daemon via `/var/run/docker.sock`.
+This guide shows how to build the launcher image locally, tag it, and run it via `aws`.
 
 ## Requirements
 
-- Docker is installed and running (`docker info` works).
-- Git (to clone this repo).
+- Docker is installed and running (`docker info`)
+- Git installed
 
 ## Build (simple)
-
-Clone and build a local tag:
 
 ```sh
 git clone https://github.com/graysurf/agent-workspace-launcher.git
@@ -23,76 +16,53 @@ cd agent-workspace-launcher
 docker build -t agent-workspace-launcher:local .
 ```
 
-Verify the image works:
+Verify the image:
 
 ```sh
 docker run --rm -it agent-workspace-launcher:local --help
 ```
 
-## Use with `cws`
-
-If you cloned the repo, you can source the wrapper and point it at your local image tag:
+## Use local tag with `aws`
 
 zsh:
 
 ```sh
-source ./scripts/cws.zsh
-export CWS_IMAGE="agent-workspace-launcher:local"
+source ./scripts/aws.zsh
+export AWS_IMAGE="agent-workspace-launcher:local"
 
-cws --help
-cws create OWNER/REPO
+aws --help
+aws create OWNER/REPO
 ```
 
 bash:
 
 ```sh
-source ./scripts/cws.bash
-export CWS_IMAGE="agent-workspace-launcher:local"
+source ./scripts/aws.bash
+export AWS_IMAGE="agent-workspace-launcher:local"
 
-cws --help
-cws create OWNER/REPO
+aws --help
+aws create OWNER/REPO
 ```
 
-Executable (any shell; no completion):
+Executable mode (no completion):
 
 ```sh
-export CWS_IMAGE="agent-workspace-launcher:local"
-./scripts/cws.bash --help
-./scripts/cws.bash create OWNER/REPO
+export AWS_IMAGE="agent-workspace-launcher:local"
+./scripts/aws.bash --help
+./scripts/aws.bash create OWNER/REPO
 ```
 
-You can also override the image per-command:
+One-off image override:
 
 ```sh
-CWS_IMAGE="agent-workspace-launcher:local" cws ls
+AWS_IMAGE="agent-workspace-launcher:local" aws ls
 ```
 
-## Pin upstream refs (recommended for reproducibility)
+## Reproducible pinning
 
-This repo pins the upstream pair in `VERSIONS.env`:
+`VERSIONS.env` is the source of truth for pinned upstream refs used by release automation.
 
-- `ZSH_KIT_REF`: source ref for generating the bundled `bin/agent-workspace` (run `scripts/generate_agent_workspace_bundle.sh`)
-- `AGENT_KIT_REF`: build-time ref for vendoring `agent-kit` into the launcher image (low-level launcher)
-
-You can also override the build args to a branch/tag/SHA:
-
-```sh
-docker build -t agent-workspace-launcher:local \
-  --build-arg ZSH_KIT_REF=main \
-  --build-arg AGENT_KIT_REF=main \
-  .
-```
-
-For reproducible builds, prefer commit SHAs:
-
-```sh
-docker build -t agent-workspace-launcher:local \
-  --build-arg ZSH_KIT_REF=<zsh-kit-sha> \
-  --build-arg AGENT_KIT_REF=<agent-kit-sha> \
-  .
-```
-
-This repo also ships a pinned pair in `VERSIONS.env` (used by CI). Build the exact pins like this:
+Build from the pinned values:
 
 ```sh
 set -euo pipefail
@@ -101,39 +71,35 @@ source ./VERSIONS.env
 set +a
 
 docker build -t agent-workspace-launcher:local \
-  --build-arg ZSH_KIT_REF="$ZSH_KIT_REF" \
   --build-arg AGENT_KIT_REF="$AGENT_KIT_REF" \
   .
 ```
 
-## Build from forks / alternate sources
-
-You can build against a fork by overriding the repo URLs.
-
-Notes:
-
-- `AGENT_KIT_*` affects the image contents (Dockerfile vendors agent-kit at build time).
-- `ZSH_KIT_*` does not affect the bundled wrapper code by itself; to change the wrapper behavior, regenerate `bin/agent-workspace`.
+Override refs manually (branch/tag/SHA):
 
 ```sh
 docker build -t agent-workspace-launcher:local \
-  --build-arg ZSH_KIT_REPO="https://github.com/<you>/zsh-kit.git" \
-  --build-arg ZSH_KIT_REF="main" \
+  --build-arg AGENT_KIT_REF="main" \
+  .
+```
+
+Build from an alternate `agent-kit` source:
+
+```sh
+docker build -t agent-workspace-launcher:local \
   --build-arg AGENT_KIT_REPO="https://github.com/<you>/agent-kit.git" \
   --build-arg AGENT_KIT_REF="main" \
   .
 ```
 
-Private forks:
+## Architecture note (Rust cutover)
 
-- The default Dockerfile clone uses HTTPS without credentials.
-- If your fork is private, you’ll need to make it public, or extend the build to provide git credentials (BuildKit secrets, SSH, etc.).
+The active launcher entrypoint is a Rust `agent-workspace` CLI.
+Legacy zsh bundle-generation paths are not part of the primary build flow.
 
-## Advanced: cross-platform builds (buildx)
+## Cross-platform builds (buildx)
 
-`docker build` builds for your current architecture. If you need a different platform (or multi-arch), use `buildx`.
-
-Example: build an amd64 image on Apple Silicon and load it locally:
+Build amd64 on Apple Silicon and load locally:
 
 ```sh
 docker buildx build \
@@ -143,7 +109,7 @@ docker buildx build \
   .
 ```
 
-Example: build both amd64+arm64 and push to a registry (requires login):
+Build amd64+arm64 and push:
 
 ```sh
 docker buildx build \
@@ -155,21 +121,19 @@ docker buildx build \
 
 ## Linux / WSL notes
 
-- Linux: you may see `permission denied` on `/var/run/docker.sock`.
-  - Quick workaround: add `--user 0:0` via `CWS_DOCKER_ARGS`.
-  - Alternative: add the docker group GID via `--group-add ...`.
-- WSL2: ensure Docker Desktop WSL integration is enabled and `docker info` works inside your distro.
+- Linux may hit `permission denied` on `/var/run/docker.sock`.
+  - Quick workaround: `AWS_DOCKER_ARGS=(--user 0:0)`
+  - Alternative: add the socket group via `--group-add ...`
+- WSL2: enable Docker Desktop WSL integration.
 
-Example (`--user 0:0`):
-
-For the sourced `cws` function (zsh/bash):
+zsh/bash function style:
 
 ```sh
-CWS_DOCKER_ARGS=(--user 0:0)
+AWS_DOCKER_ARGS=(--user 0:0)
 ```
 
-For the executable `cws` script (string form):
+Executable style:
 
 ```sh
-export CWS_DOCKER_ARGS="--user 0:0"
+export AWS_DOCKER_ARGS="--user 0:0"
 ```

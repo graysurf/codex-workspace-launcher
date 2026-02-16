@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  cat >&2 <<'EOF'
+  cat >&2 <<'USAGE'
 usage:
   scripts/release_audit.sh --version <vX.Y.Z> [--branch <name>] [--strict]
 
@@ -11,9 +11,9 @@ checks:
   - Optional: current branch matches --branch
   - Tag does not already exist locally
   - CHANGELOG.md contains: ## vX.Y.Z - YYYY-MM-DD
-  - Release entry records pinned upstream refs from VERSIONS.env:
+  - VERSIONS.env contains AGENT_KIT_REF and does not contain legacy ZSH_KIT_REF
+  - Release entry records the active upstream pin:
       ### Upstream pins
-      - zsh-kit: <ZSH_KIT_REF>
       - agent-kit: <AGENT_KIT_REF>
   - Release entry contains no placeholder lines (e.g. `- None`, `- ...`, `...`, `vX.Y.Z`, `YYYY-MM-DD`)
 
@@ -21,7 +21,7 @@ exit:
   - 0: all checks pass
   - 1: at least one check failed
   - 2: usage error
-EOF
+USAGE
 }
 
 die() {
@@ -29,29 +29,23 @@ die() {
   exit 2
 }
 
-say_ok() { printf "ok: %s\n" "$1"; }
-say_fail() { printf "fail: %s\n" "$1" >&2; }
-say_warn() { printf "warn: %s\n" "$1" >&2; }
+say_ok() { printf 'ok: %s\n' "$1"; }
+say_fail() { printf 'fail: %s\n' "$1" >&2; }
+say_warn() { printf 'warn: %s\n' "$1" >&2; }
 
 is_full_sha() {
   local v="${1:-}"
   [[ "$v" =~ ^[0-9a-f]{40}$ ]]
 }
 
-read_pins() {
+read_agent_pin() {
   local file="$1"
-  local zsh=''
   local agent=''
+
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
-      \#*|'') continue ;;
-      ZSH_KIT_REF=*)
-        zsh="${line#ZSH_KIT_REF=}"
-        zsh="${zsh%$'\r'}"
-        zsh="${zsh%\"}"
-        zsh="${zsh#\"}"
-        zsh="${zsh%\'}"
-        zsh="${zsh#\'}"
+      \#*|'')
+        continue
         ;;
       AGENT_KIT_REF=*)
         agent="${line#AGENT_KIT_REF=}"
@@ -64,10 +58,9 @@ read_pins() {
     esac
   done <"$file"
 
-  [[ -n "$zsh" ]] || die "missing ZSH_KIT_REF in $file"
   [[ -n "$agent" ]] || die "missing AGENT_KIT_REF in $file"
 
-  printf '%s %s\n' "$zsh" "$agent"
+  printf '%s\n' "$agent"
 }
 
 extract_release_notes() {
@@ -87,10 +80,10 @@ has_placeholder_lines() {
   if printf '%s\n' "$text" | grep -qE '^[[:space:]]*-[[:space:]]+None[[:space:]]*$'; then
     return 0
   fi
-  if printf '%s\n' "$text" | grep -qE '^[[:space:]]*-[[:space:]]+\\.{3}[[:space:]]*$'; then
+  if printf '%s\n' "$text" | grep -qE '^[[:space:]]*-[[:space:]]+\.{3}[[:space:]]*$'; then
     return 0
   fi
-  if printf '%s\n' "$text" | grep -qE '^[[:space:]]*\\.{3}[[:space:]]*$'; then
+  if printf '%s\n' "$text" | grep -qE '^[[:space:]]*\.{3}[[:space:]]*$'; then
     return 0
   fi
   if printf '%s\n' "$text" | grep -q 'vX.Y.Z'; then
@@ -138,9 +131,9 @@ main() {
 
   local failed=0
 
-  command -v git >/dev/null 2>&1 || die "git is required"
+  command -v git >/dev/null 2>&1 || die 'git is required'
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    die "not in a git repository"
+    die 'not in a git repository'
   fi
 
   if [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -155,10 +148,10 @@ main() {
   fi
 
   if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
-    say_fail "working tree not clean (commit/stash changes first)"
+    say_fail 'working tree not clean (commit/stash changes first)'
     failed=1
   else
-    say_ok "working tree clean"
+    say_ok 'working tree clean'
   fi
 
   local current_branch=''
@@ -196,26 +189,26 @@ main() {
     say_ok "versions file present: $versions_file"
   fi
 
-  local zsh_ref=''
-  local AGENT_ref=''
+  local agent_ref=''
   if [[ -f "$versions_file" ]]; then
-    read -r zsh_ref AGENT_ref < <(read_pins "$versions_file")
-    say_ok "pins loaded: zsh-kit=${zsh_ref} agent-kit=${AGENT_ref}"
-    if ! is_full_sha "$zsh_ref"; then
-      if (( strict )); then
-        say_fail "ZSH_KIT_REF is not a full 40-char sha: $zsh_ref"
-        failed=1
-      else
-        say_warn "ZSH_KIT_REF is not a full 40-char sha: $zsh_ref"
-      fi
+    if grep -q '^ZSH_KIT_REF=' "$versions_file"; then
+      say_fail 'legacy key present in VERSIONS.env: ZSH_KIT_REF'
+      failed=1
     fi
-    if ! is_full_sha "$AGENT_ref"; then
-      if (( strict )); then
-        say_fail "AGENT_KIT_REF is not a full 40-char sha: $AGENT_ref"
-        failed=1
-      else
-        say_warn "AGENT_KIT_REF is not a full 40-char sha: $AGENT_ref"
+
+    if agent_ref="$(read_agent_pin "$versions_file" 2>/dev/null)"; then
+      say_ok "pin loaded: agent-kit=${agent_ref}"
+      if ! is_full_sha "$agent_ref"; then
+        if (( strict )); then
+          say_fail "AGENT_KIT_REF is not a full 40-char sha: $agent_ref"
+          failed=1
+        else
+          say_warn "AGENT_KIT_REF is not a full 40-char sha: $agent_ref"
+        fi
       fi
+    else
+      say_fail "unable to read AGENT_KIT_REF from $versions_file"
+      failed=1
     fi
   fi
 
@@ -234,24 +227,22 @@ main() {
       failed=1
     else
       if [[ "$notes" != *$'\n'"### Upstream pins"$'\n'* ]]; then
-        say_fail "missing section: ### Upstream pins"
+        say_fail 'missing section: ### Upstream pins'
         failed=1
       else
-        say_ok "section present: ### Upstream pins"
+        say_ok 'section present: ### Upstream pins'
       fi
 
-      if [[ -n "$zsh_ref" && "$notes" != *"- zsh-kit: ${zsh_ref}"* ]]; then
-        say_fail "missing or mismatched pin line: - zsh-kit: ${zsh_ref}"
+      if [[ -n "$agent_ref" && "$notes" != *"- agent-kit: ${agent_ref}"* ]]; then
+        say_fail "missing or mismatched pin line: - agent-kit: ${agent_ref}"
         failed=1
       else
-        [[ -n "$zsh_ref" ]] && say_ok "pin recorded: zsh-kit"
+        [[ -n "$agent_ref" ]] && say_ok 'pin recorded: agent-kit'
       fi
 
-      if [[ -n "$AGENT_ref" && "$notes" != *"- agent-kit: ${AGENT_ref}"* ]]; then
-        say_fail "missing or mismatched pin line: - agent-kit: ${AGENT_ref}"
+      if [[ "$notes" == *"- zsh-kit:"* ]]; then
+        say_fail 'legacy pin line found in changelog entry: - zsh-kit:'
         failed=1
-      else
-        [[ -n "$AGENT_ref" ]] && say_ok "pin recorded: agent-kit"
       fi
 
       if has_placeholder_lines "$notes"; then
@@ -269,17 +260,17 @@ main() {
 
   if command -v gh >/dev/null 2>&1; then
     if gh auth status >/dev/null 2>&1; then
-      say_ok "gh auth status"
+      say_ok 'gh auth status'
     else
       if (( strict )); then
-        say_fail "gh auth status failed (run: gh auth login)"
+        say_fail 'gh auth status failed (run: gh auth login)'
         failed=1
       else
-        say_warn "gh auth status failed (run: gh auth login)"
+        say_warn 'gh auth status failed (run: gh auth login)'
       fi
     fi
   else
-    say_warn "gh not installed; skipping gh auth check"
+    say_warn 'gh not installed; skipping gh auth check'
   fi
 
   if (( failed )); then

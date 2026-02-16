@@ -2,32 +2,28 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 usage:
   scripts/bump_versions.sh --from-main [--run-e2e]
-  scripts/bump_versions.sh --zsh-kit-ref <ref|sha> --agent-kit-ref <ref|sha> [--run-e2e]
+  scripts/bump_versions.sh --agent-kit-ref <ref|sha> [--run-e2e]
 
 options:
-  --from-main              Resolve upstream pins from default release branches:
-                           zsh-kit=refs/heads/nils-cli, agent-kit=refs/heads/main.
-  --zsh-kit-ref <ref|sha>  Resolve zsh-kit ref to a full 40-char commit SHA.
-  --agent-kit-ref <ref|sha> Resolve agent-kit ref to a full 40-char commit SHA.
+  --from-main                Resolve AGENT_KIT_REF from refs/heads/main.
+  --agent-kit-ref <ref|sha>  Resolve AGENT_KIT_REF to a full 40-char commit SHA.
 
-  --zsh-kit-repo <url>     Override zsh-kit repo URL (default: https://github.com/graysurf/zsh-kit.git).
-  --agent-kit-repo <url>   Override agent-kit repo URL (default: https://github.com/graysurf/agent-kit.git).
-  --image-tag <tag>        Docker image tag to build (default: agent-workspace-launcher:local).
+  --agent-kit-repo <url>     Override agent-kit repo URL (default: https://github.com/graysurf/agent-kit.git).
+  --image-tag <tag>          Docker image tag to build (default: agent-workspace-launcher:local).
 
-  --skip-checks            Skip ruff + pytest script_smoke.
-  --skip-docker            Skip docker build and /opt/*.ref verification.
-  --skip-bundle            Skip regenerating bin/agent-workspace.
-  --run-e2e                Run real-Docker e2e (pytest -m e2e) against the built image.
+  --skip-checks              Skip ruff + pytest script_smoke + Rust checks.
+  --skip-docker              Skip docker build and /opt/agent-kit/.ref verification.
+  --run-e2e                  Run real-Docker e2e (pytest -m e2e) against the built image.
 
 notes:
-  - Always writes resolved commit SHAs into VERSIONS.env (no "main" drift).
-  - Bundling uses the pinned zsh-kit tool (tools/bundle-wrapper.zsh) when available.
-  - E2E forces CWS_E2E=1, CWS_E2E_FULL=1, and sets CWS_E2E_IMAGE=<image-tag>.
-  - rm --all coverage is still gated by CWS_E2E_ALLOW_RM_ALL=1.
-EOF
+  - Always writes a resolved full commit SHA into VERSIONS.env.
+  - Rust cutover removed zsh bundle generation and ZSH_KIT_REF pinning.
+  - E2E forces AWS_E2E=1, AWS_E2E_FULL=1, and sets AWS_E2E_IMAGE=<image-tag>.
+  - rm --all coverage is still gated by AWS_E2E_ALLOW_RM_ALL=1.
+USAGE
 }
 
 die() {
@@ -99,18 +95,45 @@ ensure_venv() {
   "${repo_root}/.venv/bin/python" -m pip install -r "${repo_root}/requirements-dev.txt"
 }
 
+update_versions_file() {
+  local versions_file="$1"
+  local resolved_agent="$2"
+
+  [[ -f "$versions_file" ]] || die "missing file: $versions_file"
+
+  local tmp=''
+  tmp="$(mktemp 2>/dev/null || true)"
+  [[ -n "$tmp" ]] || tmp="/tmp/agent-workspace-launcher.versions.$$"
+
+  local have_agent=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == ZSH_KIT_REF=* ]]; then
+      continue
+    fi
+    if [[ "$line" == AGENT_KIT_REF=* ]]; then
+      echo "AGENT_KIT_REF=${resolved_agent}" >>"$tmp"
+      have_agent=1
+      continue
+    fi
+    echo "$line" >>"$tmp"
+  done <"$versions_file"
+
+  if (( have_agent == 0 )); then
+    echo "AGENT_KIT_REF=${resolved_agent}" >>"$tmp"
+  fi
+
+  mv -f -- "$tmp" "$versions_file"
+}
+
 main() {
   local from_main=0
-  local zsh_kit_ref=''
-  local AGENT_kit_ref=''
+  local agent_kit_ref=''
 
-  local zsh_kit_repo='https://github.com/graysurf/zsh-kit.git'
-  local AGENT_kit_repo='https://github.com/graysurf/agent-kit.git'
+  local agent_kit_repo='https://github.com/graysurf/agent-kit.git'
   local image_tag='agent-workspace-launcher:local'
 
   local skip_checks=0
   local skip_docker=0
-  local skip_bundle=0
   local run_e2e=0
 
   while [[ $# -gt 0 ]]; do
@@ -123,20 +146,12 @@ main() {
         from_main=1
         shift
         ;;
-      --zsh-kit-ref)
-        zsh_kit_ref="${2-}"
-        shift 2
-        ;;
       --agent-kit-ref)
-        AGENT_kit_ref="${2-}"
-        shift 2
-        ;;
-      --zsh-kit-repo)
-        zsh_kit_repo="${2-}"
+        agent_kit_ref="${2-}"
         shift 2
         ;;
       --agent-kit-repo)
-        AGENT_kit_repo="${2-}"
+        agent_kit_repo="${2-}"
         shift 2
         ;;
       --image-tag)
@@ -149,10 +164,6 @@ main() {
         ;;
       --skip-docker)
         skip_docker=1
-        shift
-        ;;
-      --skip-bundle)
-        skip_bundle=1
         shift
         ;;
       --run-e2e)
@@ -169,68 +180,24 @@ main() {
   repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
   require_cmd git
-  require_cmd zsh
 
   if ! git -C "$repo_root" diff --quiet --; then
     die "working tree is dirty (commit/stash first)"
   fi
 
   if (( from_main == 1 )); then
-    zsh_kit_ref="refs/heads/nils-cli"
-    AGENT_kit_ref="refs/heads/main"
+    agent_kit_ref='refs/heads/main'
   fi
 
-  [[ -n "$zsh_kit_ref" ]] || die "missing --zsh-kit-ref (or use --from-main)"
-  [[ -n "$AGENT_kit_ref" ]] || die "missing --agent-kit-ref (or use --from-main)"
+  [[ -n "$agent_kit_ref" ]] || die "missing --agent-kit-ref (or use --from-main)"
 
-  info "resolving refs..."
-  local resolved_zsh=''
+  info "resolving AGENT_KIT_REF..."
   local resolved_agent=''
-  resolved_zsh="$(resolve_ref "$zsh_kit_repo" "$zsh_kit_ref")"
-  resolved_agent="$(resolve_ref "$AGENT_kit_repo" "$AGENT_kit_ref")"
-
-  info "resolved: ZSH_KIT_REF=$resolved_zsh"
+  resolved_agent="$(resolve_ref "$agent_kit_repo" "$agent_kit_ref")"
   info "resolved: AGENT_KIT_REF=$resolved_agent"
 
-  local versions_file="${repo_root}/VERSIONS.env"
-  [[ -f "$versions_file" ]] || die "missing file: VERSIONS.env"
-
   info "updating: VERSIONS.env"
-  local tmp=''
-  tmp="$(mktemp 2>/dev/null || true)"
-  [[ -n "$tmp" ]] || tmp="/tmp/agent-workspace-launcher.versions.$$"
-
-  local have_zsh=0
-  local have_agent=0
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" == ZSH_KIT_REF=* ]]; then
-      echo "ZSH_KIT_REF=${resolved_zsh}" >>"$tmp"
-      have_zsh=1
-      continue
-    fi
-    if [[ "$line" == AGENT_KIT_REF=* ]]; then
-      echo "AGENT_KIT_REF=${resolved_agent}" >>"$tmp"
-      have_agent=1
-      continue
-    fi
-    echo "$line" >>"$tmp"
-  done <"$versions_file"
-
-  if (( have_zsh == 0 )); then
-    echo "ZSH_KIT_REF=${resolved_zsh}" >>"$tmp"
-  fi
-  if (( have_agent == 0 )); then
-    echo "AGENT_KIT_REF=${resolved_agent}" >>"$tmp"
-  fi
-
-  mv -f -- "$tmp" "$versions_file"
-
-  if (( skip_bundle == 0 )); then
-    info "regenerating bundle: bin/agent-workspace"
-    (cd "$repo_root" && ./scripts/generate_agent_workspace_bundle.sh)
-  else
-    info "skipping bundle regeneration (--skip-bundle)"
-  fi
+  update_versions_file "${repo_root}/VERSIONS.env" "$resolved_agent"
 
   ensure_venv "$repo_root"
 
@@ -239,8 +206,11 @@ main() {
     (cd "$repo_root" && ./.venv/bin/python -m ruff format --check .)
     (cd "$repo_root" && ./.venv/bin/python -m ruff check .)
     (cd "$repo_root" && ./.venv/bin/python -m pytest -m script_smoke)
+    (cd "$repo_root" && cargo fmt --all -- --check)
+    (cd "$repo_root" && cargo check --workspace)
+    (cd "$repo_root" && cargo test -p agent-workspace)
   else
-    info "skipping pre-submit checks (--skip-checks)"
+    info "skipping checks (--skip-checks)"
   fi
 
   if (( skip_docker == 0 )); then
@@ -250,22 +220,16 @@ main() {
     (
       cd "$repo_root"
       docker build -t "$image_tag" \
-        --build-arg ZSH_KIT_REF="$resolved_zsh" \
         --build-arg AGENT_KIT_REF="$resolved_agent" \
         .
     )
 
-    info "verifying pins inside image..."
-    local image_zsh_ref=''
-    local image_AGENT_ref=''
-    image_zsh_ref="$(docker run --rm --entrypoint cat "$image_tag" /opt/zsh-kit.ref | tr -d '\r\n')"
-    image_AGENT_ref="$(docker run --rm --entrypoint cat "$image_tag" /opt/agent-kit/.ref | tr -d '\r\n')"
+    info "verifying AGENT_KIT_REF inside image..."
+    local image_agent_ref=''
+    image_agent_ref="$(docker run --rm --entrypoint cat "$image_tag" /opt/agent-kit/.ref | tr -d '\r\n')"
 
-    if [[ "$image_zsh_ref" != "$resolved_zsh" ]]; then
-      die "image zsh-kit ref mismatch: expected=$resolved_zsh got=$image_zsh_ref"
-    fi
-    if [[ "$image_AGENT_ref" != "$resolved_agent" ]]; then
-      die "image agent-kit ref mismatch: expected=$resolved_agent got=$image_AGENT_ref"
+    if [[ "$image_agent_ref" != "$resolved_agent" ]]; then
+      die "image AGENT_KIT_REF mismatch: expected=$resolved_agent got=$image_agent_ref"
     fi
 
     docker run --rm "$image_tag" --help >/dev/null
@@ -282,29 +246,25 @@ main() {
       fi
     fi
 
-    local allow_rm_all="${CWS_E2E_ALLOW_RM_ALL:-}"
+    local allow_rm_all="${AWS_E2E_ALLOW_RM_ALL:-}"
     local allow_rm_all_lc=''
     allow_rm_all_lc="$(printf '%s' "$allow_rm_all" | tr '[:upper:]' '[:lower:]')"
     if [[ "$allow_rm_all_lc" != "1" && "$allow_rm_all_lc" != "true" && "$allow_rm_all_lc" != "yes" && "$allow_rm_all_lc" != "on" ]]; then
-      info "e2e note: rm --all coverage excluded unless CWS_E2E_ALLOW_RM_ALL=1"
+      info "e2e note: rm --all coverage excluded unless AWS_E2E_ALLOW_RM_ALL=1"
     fi
 
     info "running real Docker e2e (full matrix) against: ${image_tag}"
     (
       cd "$repo_root"
-      export CWS_E2E=1
-      export CWS_E2E_FULL=1
-      export CWS_E2E_IMAGE="$image_tag"
-      unset CWS_E2E_CASE 2>/dev/null || true
+      export AWS_E2E=1
+      export AWS_E2E_FULL=1
+      export AWS_E2E_IMAGE="$image_tag"
+      unset AWS_E2E_CASE 2>/dev/null || true
       "${repo_root}/.venv/bin/python" -m pytest -m e2e -q -ra
     )
   fi
 
   info "done"
-  info "next:"
-  info "  git diff"
-  info "  git add -A && git commit"
-  info "  gh pr create"
 }
 
 main "$@"

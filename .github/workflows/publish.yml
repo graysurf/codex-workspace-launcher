@@ -53,7 +53,7 @@ jobs:
               {
                 echo "## Docker Hub publish: agent-workspace-launcher"
                 echo ""
-                echo "_Skipped: missing repo secrets `DOCKERHUB_USERNAME` and/or `DOCKERHUB_TOKEN`._"
+                echo "_Skipped: missing repo secrets \`DOCKERHUB_USERNAME\` and/or \`DOCKERHUB_TOKEN\`._"
                 echo ""
               } >>"$GITHUB_STEP_SUMMARY"
             fi
@@ -99,7 +99,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load pinned upstream refs (VERSIONS.env)
+      - name: Load pinned upstream ref (VERSIONS.env)
         id: refs
         shell: bash
         run: |
@@ -113,13 +113,17 @@ jobs:
           # shellcheck disable=SC1091
           source VERSIONS.env
 
-          if [[ -z "${ZSH_KIT_REF:-}" || -z "${AGENT_KIT_REF:-}" ]]; then
-            echo "error: VERSIONS.env must set ZSH_KIT_REF and AGENT_KIT_REF" >&2
+          if [[ -n "${ZSH_KIT_REF:-}" ]]; then
+            echo "error: legacy key ZSH_KIT_REF must not be set after Rust cutover" >&2
             exit 1
           fi
 
-          echo "zsh_kit_ref=${ZSH_KIT_REF}" >>"$GITHUB_OUTPUT"
-          echo "AGENT_kit_ref=${AGENT_KIT_REF}" >>"$GITHUB_OUTPUT"
+          if [[ -z "${AGENT_KIT_REF:-}" ]]; then
+            echo "error: VERSIONS.env must set AGENT_KIT_REF" >&2
+            exit 1
+          fi
+
+          echo "agent_kit_ref=${AGENT_KIT_REF}" >>"$GITHUB_OUTPUT"
 
       - name: Compute tags
         id: tags
@@ -158,7 +162,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
-            ZSH_KIT_REF=${{ steps.refs.outputs.zsh_kit_ref }}
-            AGENT_KIT_REF=${{ steps.refs.outputs.AGENT_kit_ref }}
+            AGENT_KIT_REF=${{ steps.refs.outputs.agent_kit_ref }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

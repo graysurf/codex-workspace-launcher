@@ -1,0 +1,22 @@
+[package]
+name = "agent-workspace"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+description = "Rust front controller that forwards workspace commands to the low-level launcher."
+repository = "https://github.com/graysurf/agent-workspace-launcher"
+
+[lib]
+name = "agent_workspace"
+path = "src/lib.rs"
+
+[[bin]]
+name = "agent-workspace"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

@@ -2,23 +2,22 @@
 set -euo pipefail
 
 usage() {
-  cat >&2 <<'EOF'
+  cat >&2 <<'USAGE'
 usage:
   scripts/release_prepare_changelog.sh --version <vX.Y.Z> [--date <YYYY-MM-DD>]
 
 what it does:
-  - Reads pinned upstream refs from VERSIONS.env (ZSH_KIT_REF + AGENT_KIT_REF).
-  - Moves the current CHANGELOG.md "## Unreleased" content into a new release entry:
+  - Reads AGENT_KIT_REF from VERSIONS.env.
+  - Moves CHANGELOG.md "## Unreleased" content into a new release entry:
       ## vX.Y.Z - YYYY-MM-DD
       ### Upstream pins
-      - zsh-kit: <ZSH_KIT_REF>
       - agent-kit: <AGENT_KIT_REF>
   - Resets "## Unreleased" to an empty section.
 
 notes:
   - This edits CHANGELOG.md in-place.
   - This does not create commits or tags.
-EOF
+USAGE
 }
 
 die() {
@@ -74,25 +73,20 @@ def die(msg: str) -> None:
     raise SystemExit(2)
 
 
-def _read_versions(path: Path) -> tuple[str, str]:
-    zsh_ref: str | None = None
-    AGENT_ref: str | None = None
+def read_versions(path: Path) -> str:
+    agent_ref: str | None = None
     for raw in path.read_text("utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        if line.startswith("ZSH_KIT_REF="):
-            zsh_ref = line.split("=", 1)[1].strip().strip('"').strip("'")
         if line.startswith("AGENT_KIT_REF="):
-            AGENT_ref = line.split("=", 1)[1].strip().strip('"').strip("'")
-    if not zsh_ref:
-        die(f"VERSIONS.env missing ZSH_KIT_REF: {path}")
-    if not AGENT_ref:
+            agent_ref = line.split("=", 1)[1].strip().strip('"').strip("'")
+    if not agent_ref:
         die(f"VERSIONS.env missing AGENT_KIT_REF: {path}")
-    return zsh_ref, AGENT_ref
+    return agent_ref
 
 
-def _ensure_release_sections(text: str) -> str:
+def ensure_release_sections(text: str) -> str:
     return text.strip("\n") + ("\n" if text.strip("\n") else "")
 
 
@@ -111,7 +105,7 @@ def main() -> None:
     if not versions_path.is_file():
         die(f"missing VERSIONS.env: {versions_path}")
 
-    zsh_ref, AGENT_ref = _read_versions(versions_path)
+    agent_ref = read_versions(versions_path)
     raw = changelog_path.read_text("utf-8").replace("\r\n", "\n").replace("\r", "\n")
 
     if f"## {version} - " in raw:
@@ -132,15 +126,14 @@ def main() -> None:
     moved = unreleased_body.strip("\n")
     if not moved.strip():
         moved = ""
-    moved = _ensure_release_sections(moved)
+    moved = ensure_release_sections(moved)
 
     release_entry = "\n".join(
         [
             f"## {version} - {date_str}",
             "",
             "### Upstream pins",
-            f"- zsh-kit: {zsh_ref}",
-            f"- agent-kit: {AGENT_ref}",
+            f"- agent-kit: {agent_ref}",
             "",
             moved.strip("\n"),
             "",
@@ -158,9 +151,7 @@ def main() -> None:
     )
 
     changelog_path.write_text(out, "utf-8")
-    print(
-        f"updated {changelog_path} for {version} (zsh-kit={zsh_ref} agent-kit={AGENT_ref})"
-    )
+    print(f"updated {changelog_path} for {version} (agent-kit={agent_ref})")
 
 
 if __name__ == "__main__":
