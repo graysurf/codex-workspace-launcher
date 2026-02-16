@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v1.1.1 - 2026-02-16
+
+### Upstream pins
+- agent-kit: 0ae695f18f672bf1f418c068a5e3124a26ecfb1a
+
 ## v1.1.0 - 2026-02-17
 
 ### Upstream pins
