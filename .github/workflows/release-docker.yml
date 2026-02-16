@@ -1,0 +1,253 @@
+name: release-docker
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag/ref to publish (defaults to triggering ref)"
+        required: false
+        type: string
+      publish_version_tag:
+        description: "Also publish the version tag (requires tag ref)"
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
+    inputs:
+      ref:
+        description: "Tag/ref to publish (defaults to triggering ref)"
+        required: false
+        type: string
+      publish_version_tag:
+        description: "Also publish the version tag (requires tag ref)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-docker-agent-workspace-launcher-${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      release_ref: ${{ steps.meta.outputs.release_ref }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      publish_version_tag: ${{ steps.meta.outputs.publish_version_tag }}
+      publish_ghcr: ${{ steps.targets.outputs.publish_ghcr }}
+      publish_dockerhub: ${{ steps.targets.outputs.publish_dockerhub }}
+
+    steps:
+      - name: Resolve release ref/tag and tag policy
+        id: meta
+        shell: bash
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_PUBLISH_VERSION_TAG: ${{ inputs.publish_version_tag }}
+        run: |
+          set -euo pipefail
+
+          release_ref="${INPUT_REF:-${GITHUB_REF:-}}"
+          if [[ -z "${release_ref}" ]]; then
+            echo "error: unable to resolve release ref" >&2
+            exit 1
+          fi
+
+          release_tag=""
+          if [[ "${release_ref}" == refs/tags/v* ]]; then
+            release_tag="${release_ref#refs/tags/}"
+          elif [[ "${release_ref}" == v* ]]; then
+            release_tag="${release_ref}"
+          elif [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+
+          publish_version_tag="${INPUT_PUBLISH_VERSION_TAG:-}"
+          if [[ -z "${publish_version_tag}" ]]; then
+            if [[ -n "${release_tag}" ]]; then
+              publish_version_tag="true"
+            else
+              publish_version_tag="false"
+            fi
+          fi
+
+          publish_version_tag_lc="$(printf '%s' "${publish_version_tag}" | tr '[:upper:]' '[:lower:]')"
+          case "${publish_version_tag_lc}" in
+            true|1|yes|on) publish_version_tag_lc="1" ;;
+            false|0|no|off|'') publish_version_tag_lc="0" ;;
+            *)
+              echo "error: invalid publish_version_tag='${publish_version_tag}'" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -n "${release_tag}" && ! "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "error: tag must match vX.Y.Z(.*), got '${release_tag}'" >&2
+            exit 1
+          fi
+
+          if [[ "${publish_version_tag_lc}" == "1" && -z "${release_tag}" ]]; then
+            echo "error: publish_version_tag=true requires a tag ref (vX.Y.Z)" >&2
+            exit 1
+          fi
+
+          echo "release_ref=${release_ref}" >>"$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >>"$GITHUB_OUTPUT"
+          echo "publish_version_tag=${publish_version_tag_lc}" >>"$GITHUB_OUTPUT"
+
+      - name: Determine publish targets
+        id: targets
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          publish_ghcr=1
+          publish_dockerhub=0
+
+          if [[ -n "${DOCKERHUB_USERNAME}" && -n "${DOCKERHUB_TOKEN}" ]]; then
+            publish_dockerhub=1
+          else
+            echo "warning: missing DOCKERHUB_USERNAME and/or DOCKERHUB_TOKEN; Docker Hub publish will be skipped" >&2
+          fi
+
+          echo "publish_ghcr=${publish_ghcr}" >>"$GITHUB_OUTPUT"
+          echo "publish_dockerhub=${publish_dockerhub}" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      DOCKERHUB_IMAGE: graysurf/agent-workspace-launcher
+      GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/agent-workspace-launcher
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.precheck.outputs.release_ref }}
+
+      - name: Set build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          if [[ ! "${short_sha}" =~ ^[0-9a-f]{7}$ ]]; then
+            echo "error: could not derive 7-char short sha" >&2
+            exit 1
+          fi
+          echo "short_sha=${short_sha}" >>"$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: ${{ needs.precheck.outputs.publish_dockerhub == '1' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        if: ${{ needs.precheck.outputs.publish_ghcr == '1' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load pinned upstream ref (VERSIONS.env)
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f VERSIONS.env ]]; then
+            echo "error: missing VERSIONS.env at repo root" >&2
+            exit 1
+          fi
+
+          if grep -Eq '^[[:space:]]*ZSH_KIT_REF=' VERSIONS.env; then
+            echo "error: legacy key ZSH_KIT_REF must not be present in VERSIONS.env" >&2
+            exit 1
+          fi
+
+          # shellcheck disable=SC1091
+          source VERSIONS.env
+
+          if [[ -z "${AGENT_KIT_REF:-}" ]]; then
+            echo "error: VERSIONS.env must set AGENT_KIT_REF" >&2
+            exit 1
+          fi
+
+          if [[ ! "${AGENT_KIT_REF}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "error: AGENT_KIT_REF must be a full 40-char sha, got '${AGENT_KIT_REF}'" >&2
+            exit 1
+          fi
+
+          echo "agent_kit_ref=${AGENT_KIT_REF}" >>"$GITHUB_OUTPUT"
+
+      - name: Compute tags
+        id: tags
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.precheck.outputs.release_tag }}
+          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          PUBLISH_VERSION_TAG: ${{ needs.precheck.outputs.publish_version_tag }}
+        run: |
+          set -euo pipefail
+
+          tags=()
+
+          if [[ "${{ needs.precheck.outputs.publish_dockerhub }}" == "1" ]]; then
+            tags+=("${DOCKERHUB_IMAGE}:latest")
+            tags+=("${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}")
+            if [[ "${PUBLISH_VERSION_TAG}" == "1" ]]; then
+              tags+=("${DOCKERHUB_IMAGE}:${RELEASE_TAG}")
+            fi
+          fi
+
+          if [[ "${{ needs.precheck.outputs.publish_ghcr }}" == "1" ]]; then
+            tags+=("${GHCR_IMAGE}:latest")
+            tags+=("${GHCR_IMAGE}:sha-${SHORT_SHA}")
+            if [[ "${PUBLISH_VERSION_TAG}" == "1" ]]; then
+              tags+=("${GHCR_IMAGE}:${RELEASE_TAG}")
+            fi
+          fi
+
+          if (( ${#tags[@]} == 0 )); then
+            tags+=("local/${GITHUB_REPOSITORY}:sha-${SHORT_SHA}")
+          fi
+
+          {
+            echo "tags<<EOF"
+            printf "%s\n" "${tags[@]}"
+            echo "EOF"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Build and push multi-arch images
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            AGENT_KIT_REF=${{ steps.refs.outputs.agent_kit_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

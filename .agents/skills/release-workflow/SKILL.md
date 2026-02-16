@@ -1,16 +1,17 @@
 ---
 name: release-agent-workspace-launcher
-description: "Release agent-workspace-launcher: record pinned agent-kit/zsh-kit refs in CHANGELOG, run local real-Docker e2e, and publish via docker branch."
+description: "Release agent-workspace-launcher: record pinned agent-kit ref in CHANGELOG, run local real-Docker e2e, and publish split Docker/Brew channels from release tags."
 ---
 
 # Release Workflow (agent-workspace-launcher)
 
-This repo publishes the launcher image from the `docker` branch (see `.github/workflows/publish.yml`).
+This repo releases from semver tags (`vX.Y.Z`) with split publish channels: Docker images and Brew artifacts.
 
-This project-specific workflow extends the base `release-workflow` with two non-negotiables:
+This project-specific workflow extends the base `release-workflow` with three non-negotiables:
 
-1) Record the pinned upstream pair (`VERSIONS.env`) in the release entry in `CHANGELOG.md`.
+1) Record the active upstream pin (`AGENT_KIT_REF` from `VERSIONS.env`) in the release entry in `CHANGELOG.md`.
 2) Run local real-Docker E2E (full matrix) and **abort** if it fails.
+3) Treat Docker and Brew as separate publish channels that must both be verified from the same release tag.
 
 ## Contract
 
@@ -20,7 +21,7 @@ Prereqs:
 - Working tree is clean before running the E2E gate.
 - Docker is available (E2E is real Docker): `docker info` succeeds.
 - E2E environment is configured (via `direnv`/`.envrc` + `.env`, or equivalent).
-  - At minimum, repo-backed cases require `CWS_E2E_PUBLIC_REPO`.
+  - At minimum, repo-backed cases require `AWS_E2E_PUBLIC_REPO`.
   - Auth-heavy cases require additional secrets/mounts (see `DEVELOPMENT.md`).
 - `git` available on `PATH`.
 - Optional (recommended): `gh` available + `gh auth status` succeeds (for tagging / releases / branch ops).
@@ -29,23 +30,24 @@ Inputs:
 
 - Release version: `vX.Y.Z`
 - Optional: release date (`YYYY-MM-DD`; defaults to today)
-- Optional: E2E image tag (defaults to `cws-launcher:e2e`)
+- Optional: E2E image tag (defaults to `aws-launcher:e2e`)
 
 Outputs:
 
 - `CHANGELOG.md` updated with a `## vX.Y.Z - YYYY-MM-DD` entry that includes:
   - `### Upstream pins`
-    - `- zsh-kit: <ZSH_KIT_REF>`
     - `- agent-kit: <AGENT_KIT_REF>`
 - Local E2E run result (pass required; artifacts under `out/tests/e2e/`)
 - Optionally:
   - Git tag `vX.Y.Z` pushed
-  - `docker` branch fast-forwarded to `main` to trigger publish
+  - Docker channel publish completed for `vX.Y.Z`
+  - Brew channel publish completed for `vX.Y.Z` (assets + checksums)
 
 Stop conditions:
 
 - Local E2E fails: stop immediately; do not publish; report the failure output and ask how to proceed.
 - Changelog audit fails (missing pins / bad version heading / placeholders): stop; fix before publishing.
+- Docker or Brew publish fails: stop and report channel-specific failure evidence; do not declare release complete.
 
 ## Key rule: E2E gate is mandatory
 
@@ -55,19 +57,17 @@ Recommended: run via `direnv exec .` so your `.env` is applied:
 
 ```sh
 set -euo pipefail
-set -a; source ./VERSIONS.env; set +a
 
 direnv exec . ./scripts/bump_versions.sh \
-  --zsh-kit-ref "$ZSH_KIT_REF" \
-  --agent-kit-ref "$AGENT_KIT_REF" \
-  --image-tag cws-launcher:e2e \
+  --from-main \
+  --image-tag aws-launcher:e2e \
   --run-e2e
 ```
 
 Notes:
 
-- `--run-e2e` forces `CWS_E2E=1`, `CWS_E2E_FULL=1`, and sets `CWS_E2E_IMAGE=<image-tag>`.
-- Destructive `rm --all --yes` coverage remains gated by `CWS_E2E_ALLOW_RM_ALL=1`.
+- `--run-e2e` forces `AWS_E2E=1`, `AWS_E2E_FULL=1`, and sets `AWS_E2E_IMAGE=<image-tag>`.
+- Destructive `rm --all --yes` coverage remains gated by `AWS_E2E_ALLOW_RM_ALL=1`.
 
 ## Workflow
 
@@ -85,9 +85,16 @@ Notes:
    - Review `CHANGELOG.md` (fill out wording; remove `- None` if you added real bullets).
 
 4. Run required repo checks (per `DEVELOPMENT.md`)
+   - `bash -n $(git ls-files 'scripts/*.sh' 'scripts/*.bash')`
+   - `zsh -n $(git ls-files 'scripts/*.zsh')`
+   - `shellcheck $(git ls-files 'scripts/*.sh' 'scripts/*.bash')`
    - `.venv/bin/python -m ruff format --check .`
    - `.venv/bin/python -m ruff check .`
    - `.venv/bin/python -m pytest -m script_smoke`
+   - `cargo fmt --all -- --check`
+   - `cargo check --workspace`
+   - `cargo clippy --workspace --all-targets -- -D warnings`
+   - `cargo test -p agent-workspace`
 
 5. Commit the release notes
    - Suggested message: `chore(release): vX.Y.Z`
@@ -97,22 +104,25 @@ Notes:
    - Run after committing (audit requires a clean working tree):
      - `./scripts/release_audit.sh --version vX.Y.Z --branch main --strict`
 
-7. (Optional) Tag the release
+7. Tag the release (required for split channel publish)
    - Create: `git tag vX.Y.Z`
    - Push: `git push origin vX.Y.Z`
    - Optional GitHub Release:
      - Extract notes from `CHANGELOG.md` and publish with `gh release create`.
 
-8. Publish images (this repo’s publish trigger)
-   - Fast-forward `docker` to `main` and push:
-     - `git fetch origin`
-     - `git checkout docker`
-     - `git merge --ff-only origin/main`
-     - `git push origin docker`
-     - `git checkout main`
+8. Publish Docker channel (tag-driven)
+   - Confirm Docker release workflow ran for `vX.Y.Z` (for example: `release-docker.yml`).
+   - If Docker uses manual dispatch, run it against the tag and record the run URL.
+   - Transition note: if a temporary legacy workflow still exists (for example `publish.yml`), treat it as compatibility only, not the primary release contract.
 
-9. Verify publish
-   - Follow `docs/runbooks/INTEGRATION_TEST.md` (record the workflow run URL + tags evidence).
+9. Publish Brew channel (tag-driven)
+   - Confirm Brew release workflow ran for `vX.Y.Z` (for example: `release-brew.yml`).
+   - Verify release assets are present for each supported target (`*.tar.gz` + matching `*.sha256`).
+   - If one channel fails, retry only that channel after fixing the issue.
+
+10. Verify channel outcomes
+   - Docker: follow `docs/runbooks/INTEGRATION_TEST.md` and capture run URL + image tag evidence.
+   - Brew: verify GitHub Release assets and checksums for `vX.Y.Z` are complete before tap update work.
 
 ## Helper scripts (project)
 

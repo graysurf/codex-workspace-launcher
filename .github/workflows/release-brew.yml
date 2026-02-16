@@ -1,0 +1,148 @@
+name: release-brew
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag/ref to package (defaults to triggering ref)"
+        required: false
+        type: string
+      tag:
+        description: "Release tag to publish assets under (for example v1.2.3)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-brew-agent-workspace-launcher-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      release_ref: ${{ steps.meta.outputs.release_ref }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+
+    steps:
+      - name: Resolve release ref/tag
+        id: meta
+        shell: bash
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          release_ref="${INPUT_REF:-${GITHUB_REF:-}}"
+          if [[ -z "${release_ref}" ]]; then
+            echo "error: unable to resolve release ref" >&2
+            exit 1
+          fi
+
+          release_tag="${INPUT_TAG:-}"
+          if [[ -z "${release_tag}" ]]; then
+            if [[ "${release_ref}" == refs/tags/v* ]]; then
+              release_tag="${release_ref#refs/tags/}"
+            elif [[ "${release_ref}" == v* ]]; then
+              release_tag="${release_ref}"
+            elif [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
+              release_tag="${GITHUB_REF_NAME}"
+            fi
+          fi
+
+          if [[ -z "${release_tag}" ]]; then
+            echo "error: release tag is required (expected vX.Y.Z)" >&2
+            exit 1
+          fi
+
+          if [[ ! "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "error: release tag must match vX.Y.Z(.*), got '${release_tag}'" >&2
+            exit 1
+          fi
+
+          echo "release_ref=${release_ref}" >>"$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: precheck
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.precheck.outputs.release_ref }}
+
+      - name: Package Brew release archive
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.precheck.outputs.release_tag }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+
+          out_name="agent-workspace-launcher-${RELEASE_TAG}-${TARGET}"
+          out_dir="dist/${out_name}"
+          mkdir -p "${out_dir}/scripts"
+
+          install -m 0755 scripts/aws.bash "${out_dir}/scripts/aws.bash"
+          install -m 0644 scripts/aws.zsh "${out_dir}/scripts/aws.zsh"
+          install -m 0644 README.md "${out_dir}/README.md"
+          install -m 0644 LICENSE "${out_dir}/LICENSE"
+
+          tarball="${out_name}.tar.gz"
+          tar -C dist -czf "dist/${tarball}" "${out_name}"
+
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd dist && sha256sum "${tarball}" > "${tarball}.sha256")
+          elif command -v shasum >/dev/null 2>&1; then
+            (cd dist && shasum -a 256 "${tarball}" > "${tarball}.sha256")
+          else
+            echo "error: neither sha256sum nor shasum found" >&2
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: brew-assets-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            dist/agent-workspace-launcher-${{ needs.precheck.outputs.release_tag }}-${{ matrix.target }}.tar.gz
+            dist/agent-workspace-launcher-${{ needs.precheck.outputs.release_tag }}-${{ matrix.target }}.tar.gz.sha256
+
+  release:
+    needs: [precheck, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: brew-assets-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.precheck.outputs.release_tag }}
+          generate_release_notes: false
+          overwrite_files: true
+          files: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256

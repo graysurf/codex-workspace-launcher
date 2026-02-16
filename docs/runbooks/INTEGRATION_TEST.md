@@ -3,18 +3,21 @@
 This repo’s “launcher image” is **Docker-outside-of-Docker (DooD)**: the launcher container uses the host Docker
 daemon (`/var/run/docker.sock`) to create **workspace containers**.
 
-This checklist is for validating the end-to-end experience after merging to `main`.
+This checklist is for validating the end-to-end experience after cutting a release tag (`vX.Y.Z`).
 
 ## What to verify
 
 - [x] macOS quickstart smoke (zsh wrapper via `aws`; no local build)
 - [x] macOS quickstart smoke (bash wrapper via `aws`; no local build)
 - [x] Linux exploratory smoke run (captures logs)
-- [x] CI publish run URL recorded (on `main`)
-- [x] Docker Hub tags exist (`latest`, `sha-<short>`)
+- [x] Docker release workflow run URL recorded (`release-docker.yml` for `vX.Y.Z`)
+- [x] Docker Hub tags exist (`latest`, `vX.Y.Z`, `sha-<short>`)
 - [x] Docker Hub image is multi-arch (`linux/amd64`, `linux/arm64`)
-- [x] GHCR tags exist (`latest`, `sha-<short>`)
+- [x] GHCR tags exist (`latest`, `vX.Y.Z`, `sha-<short>`)
 - [x] GHCR image is multi-arch (`linux/amd64`, `linux/arm64`)
+- [x] Brew release workflow run URL recorded (`release-brew.yml` for `vX.Y.Z`)
+- [x] GitHub Release assets exist for all target tarballs + checksum files
+- [x] Downloaded Brew asset checksums verify locally
 
 ## macOS quickstart smoke (published images; no local build)
 
@@ -118,16 +121,18 @@ Evidence (2026-01-20; OrbStack on macOS):
 - `$CODEX_HOME/out/linux-exploratory-smoke-orbstack-20260120-085812.log`
 - `$CODEX_HOME/out/linux-exploratory-create-orbstack-20260120-085812.log`
 
-## CI publish verification
+## Release channel verification
 
-After merge to `main`, verify:
+After pushing `vX.Y.Z`, verify:
 
-- GitHub Actions workflow `.github/workflows/publish.yml` ran successfully on `main` (record the run URL).
+- GitHub Actions workflow `.github/workflows/release-docker.yml` ran successfully for `vX.Y.Z` (record the run URL).
 - Docker Hub has the expected tags:
   - `graysurf/agent-workspace-launcher:latest`
+  - `graysurf/agent-workspace-launcher:vX.Y.Z`
   - `graysurf/agent-workspace-launcher:sha-<short>`
 - GHCR has the expected tags:
   - `ghcr.io/graysurf/agent-workspace-launcher:latest`
+  - `ghcr.io/graysurf/agent-workspace-launcher:vX.Y.Z`
   - `ghcr.io/graysurf/agent-workspace-launcher:sha-<short>`
 - The published images are multi-arch:
 
@@ -137,6 +142,34 @@ docker buildx imagetools inspect ghcr.io/graysurf/agent-workspace-launcher:lates
 ```
 
 Expected platforms include `linux/amd64` and `linux/arm64`.
+
+Then verify Brew assets:
+
+- GitHub Actions workflow `.github/workflows/release-brew.yml` ran successfully for `vX.Y.Z` (record the run URL).
+- GitHub Release contains per-target files:
+  - `agent-workspace-launcher-vX.Y.Z-x86_64-apple-darwin.tar.gz` + `.sha256`
+  - `agent-workspace-launcher-vX.Y.Z-aarch64-apple-darwin.tar.gz` + `.sha256`
+  - `agent-workspace-launcher-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` + `.sha256`
+  - `agent-workspace-launcher-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz` + `.sha256`
+- Local checksum verification:
+
+```sh
+version="vX.Y.Z"
+out_dir="${AGENTS_HOME:-$HOME/.agents}/out/release-${version}"
+mkdir -p "$out_dir"
+
+gh release download "$version" \
+  --pattern "agent-workspace-launcher-${version}-*.tar.gz" \
+  --pattern "agent-workspace-launcher-${version}-*.tar.gz.sha256" \
+  --dir "$out_dir"
+
+(
+  cd "$out_dir"
+  for sum in *.sha256; do
+    shasum -a 256 -c "$sum"
+  done
+)
+```
 
 Evidence (2026-01-20):
 

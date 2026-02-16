@@ -110,12 +110,88 @@ Notes:
 - Destructive coverage (`rm --all --yes`) is gated by `AWS_E2E_ALLOW_RM_ALL=1`.
 - Artifacts are written under `out/tests/e2e/`.
 
-## Publish
+## Publish (tag-based split channels)
 
-Publish workflow triggers on pushes to branch `docker` (see `.github/workflows/publish.yml`).
+Release source-of-truth is a semver tag (`vX.Y.Z`) created from `main`.
 
-Recommended pattern:
+1. Land version bump changes on `main` via PR.
+2. Create and push release tag:
 
-1. Land changes on `main` via PR.
-2. Fast-forward `docker` to `main` when ready to publish.
-3. Verify `latest` and `sha-<short>` tags in Docker Hub / GHCR.
+```sh
+git -c tag.gpgSign=false tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+3. Ensure a GitHub Release exists for the same tag:
+
+```sh
+gh release view vX.Y.Z || gh release create vX.Y.Z --title "vX.Y.Z" --notes ""
+```
+
+4. Channel trigger rules:
+   - Docker channel: `.github/workflows/release-docker.yml` runs from `push.tags: v*` (and optional `workflow_dispatch` reruns).
+   - Brew channel: `.github/workflows/release-brew.yml` runs from `push.tags: v*` (and optional `workflow_dispatch` reruns).
+   - Both channels must publish artifacts for the same `vX.Y.Z` tag.
+
+Temporary transition note: `.github/workflows/publish.yml` (push to branch `docker`) may remain as a Docker-only compatibility path while migration is in progress. Treat it as fallback only, not the primary release trigger.
+
+## Channel verification checkpoints
+
+Run both checkpoints before closing the release task.
+
+### Docker channel
+
+- Confirm workflow success for the tag:
+  - `gh run list --workflow release-docker.yml --limit 5`
+- Confirm expected image tags are visible:
+  - `docker buildx imagetools inspect docker.io/graysurf/agent-workspace-launcher:vX.Y.Z`
+  - `docker buildx imagetools inspect ghcr.io/graysurf/agent-workspace-launcher:vX.Y.Z`
+- Verify `latest` and `sha-<short>` tags in Docker Hub + GHCR.
+
+### Brew channel
+
+- Confirm workflow success for the tag:
+  - `gh run list --workflow release-brew.yml --limit 5`
+- Confirm release assets include matching `*.tar.gz` + `*.sha256` files:
+  - `gh release view vX.Y.Z --json assets --jq '.assets[].name'`
+- Verify checksums locally:
+  - `mkdir -p "${AGENTS_HOME:-$HOME/.agents}/out/release-vX.Y.Z"`
+  - `gh release download vX.Y.Z --pattern '*.tar.gz' --pattern '*.sha256' --dir "${AGENTS_HOME:-$HOME/.agents}/out/release-vX.Y.Z"`
+  - `cd "${AGENTS_HOME:-$HOME/.agents}/out/release-vX.Y.Z" && for f in *.sha256; do shasum -a 256 -c "$f"; done`
+
+## Update `homebrew-tap` formula
+
+After the Brew channel checks pass, update the tap formula with exact URL + checksum pairs.
+
+```sh
+version="vX.Y.Z"
+asset_dir="${AGENTS_HOME:-$HOME/.agents}/out/release-${version}"
+tap_dir="$HOME/Project/graysurf/homebrew-tap"
+
+mkdir -p "$asset_dir"
+gh release download "$version" \
+  --pattern "agent-workspace-launcher-${version}-*.tar.gz" \
+  --pattern "agent-workspace-launcher-${version}-*.tar.gz.sha256" \
+  --dir "$asset_dir"
+
+(
+  cd "$asset_dir"
+  for sum in *.sha256; do
+    shasum -a 256 -c "$sum"
+  done
+)
+
+cd "$tap_dir"
+# Update Formula/agent-workspace-launcher.rb URLs + sha256 values from downloaded checksums.
+```
+
+Validate in `homebrew-tap`:
+
+```sh
+ruby -c Formula/agent-workspace-launcher.rb
+HOMEBREW_NO_AUTO_UPDATE=1 brew style Formula/agent-workspace-launcher.rb
+brew tap graysurf/tap "$(pwd)" --custom-remote
+brew update-reset "$(brew --repo graysurf/tap)"
+HOMEBREW_NO_AUTO_UPDATE=1 brew reinstall agent-workspace-launcher || HOMEBREW_NO_AUTO_UPDATE=1 brew install agent-workspace-launcher
+HOMEBREW_NO_AUTO_UPDATE=1 brew test agent-workspace-launcher
+```

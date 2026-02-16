@@ -181,10 +181,21 @@ These names are intentionally **not** renamed to `AWS_*`.
 
 Publishing:
 
-- Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
-- Publish branch: `docker`
-- Registries: Docker Hub + GHCR
-- Tags: `latest`, `sha-<short>`
+- Primary trigger: push release tag `vX.Y.Z` from `main`
+- Docker workflow: [`.github/workflows/release-docker.yml`](.github/workflows/release-docker.yml)
+  - Publishes to Docker Hub + GHCR
+  - Tags: `latest`, `vX.Y.Z`, `sha-<short>`
+- Brew workflow: [`.github/workflows/release-brew.yml`](.github/workflows/release-brew.yml)
+  - Publishes assets on GitHub Releases for targets:
+    - `x86_64-apple-darwin`
+    - `aarch64-apple-darwin`
+    - `x86_64-unknown-linux-gnu`
+    - `aarch64-unknown-linux-gnu`
+  - Asset naming:
+    - `agent-workspace-launcher-vX.Y.Z-<target>.tar.gz`
+    - `agent-workspace-launcher-vX.Y.Z-<target>.tar.gz.sha256`
+- Tap update repo: `~/Project/graysurf/homebrew-tap` (`Formula/agent-workspace-launcher.rb`)
+- Compatibility fallback only: [`.github/workflows/publish.yml`](.github/workflows/publish.yml) on branch `docker`
 
 ## License
 
