@@ -17,7 +17,7 @@ Host-native workspace lifecycle CLI for repository-focused development.
 
 ## Install
 
-Homebrew (recommended):
+### Homebrew
 
 ```sh
 brew tap graysurf/tap
@@ -26,7 +26,88 @@ agent-workspace-launcher --help
 awl --help
 ```
 
-Build from source (contributors):
+### Docker Hub (DooD, no brew required)
+
+This mode is Docker-outside-of-Docker (DooD): `awl_docker` runs inside a launcher container
+that talks to your host Docker daemon via `/var/run/docker.sock`.
+
+```sh
+docker pull graysurf/agent-workspace-launcher:latest
+docker pull graysurf/agent-env:latest
+```
+
+Without cloning (zsh):
+
+```sh
+mkdir -p "$HOME/.config/agent-workspace-launcher"
+curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/awl_docker.zsh \
+  -o "$HOME/.config/agent-workspace-launcher/awl_docker.zsh"
+autoload -Uz compinit
+compinit
+source "$HOME/.config/agent-workspace-launcher/awl_docker.zsh"
+```
+
+Without cloning (bash):
+
+```sh
+mkdir -p "$HOME/.config/agent-workspace-launcher"
+curl -fsSL https://raw.githubusercontent.com/graysurf/agent-workspace-launcher/main/scripts/awl_docker.bash \
+  -o "$HOME/.config/agent-workspace-launcher/awl_docker.bash"
+source "$HOME/.config/agent-workspace-launcher/awl_docker.bash"
+```
+
+Configure wrapper defaults (optional):
+
+zsh:
+
+```sh
+AWL_DOCKER_IMAGE="graysurf/agent-workspace-launcher:latest"
+AWL_DOCKER_AGENT_ENV_IMAGE="graysurf/agent-env:latest"
+AWL_DOCKER_ARGS=(
+  -e HOME="$HOME"
+  -v "$HOME/.config:$HOME/.config:ro"
+)
+```
+
+bash:
+
+```sh
+AWL_DOCKER_IMAGE="graysurf/agent-workspace-launcher:latest"
+AWL_DOCKER_AGENT_ENV_IMAGE="graysurf/agent-env:latest"
+AWL_DOCKER_ARGS="-e HOME=$HOME -v $HOME/.config:$HOME/.config:ro"
+```
+
+Common operations:
+
+```sh
+awl_docker --help
+awl_docker create OWNER/REPO
+awl_docker ls
+awl_docker exec <workspace>
+awl_docker rm <workspace> --yes
+```
+
+Direct `docker run` is also supported:
+
+```sh
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e AGENT_ENV_IMAGE=graysurf/agent-env:latest \
+  graysurf/agent-workspace-launcher:latest \
+  create OWNER/REPO
+```
+
+DooD host-path rules:
+
+- Mounting `docker.sock` is root-equivalent host access.
+- Any `-v <src>:<dst>` sent by launcher resolves `<src>` on the host.
+- If you need host files (`~/.config`, `~/.ssh`), pass same-path mounts explicitly.
+
+`awl_docker` completion:
+
+- `source scripts/awl_docker.zsh` (zsh) or `source scripts/awl_docker.bash` (bash) will register completion automatically.
+
+### Build from source
 
 ```sh
 cargo build --release -p agent-workspace
@@ -40,34 +121,6 @@ ln -sf "$(pwd)/target/release/agent-workspace-launcher" "$HOME/.local/bin/awl"
 awl --help
 ```
 
-Docker Hub (no brew required):
-
-```sh
-docker pull graysurf/agent-workspace-launcher:latest
-docker pull graysurf/agent-env:latest
-```
-
-```sh
-awl_docker() {
-  mkdir -p "$HOME/.awl-docker/home" "$HOME/.awl-docker/xdg-state"
-  docker run --rm -it \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$HOME/.awl-docker:/state" \
-    -e HOME=/state/home \
-    -e XDG_STATE_HOME=/state/xdg-state \
-    -e AGENT_ENV_IMAGE=graysurf/agent-env:latest \
-    graysurf/agent-workspace-launcher:latest "$@"
-}
-```
-
-```sh
-awl_docker --help
-awl_docker create --no-work-repos --name ws-demo
-awl_docker ls
-awl_docker exec ws-demo
-awl_docker rm ws-demo --yes
-```
-
 ## Quickstart
 
 Create and use a workspace:
@@ -77,46 +130,6 @@ agent-workspace-launcher create OWNER/REPO
 agent-workspace-launcher ls
 agent-workspace-launcher exec <workspace>
 agent-workspace-launcher rm <workspace> --yes
-```
-
-## `docker exec` alias and completion
-
-Use an alias when you always target the same workspace container:
-
-```sh
-alias awx='docker exec -it agent-ws-ws-demo'
-awx zsh
-awx id -u
-```
-
-Use a function when container name should stay dynamic:
-
-```sh
-awxg() { docker exec -it "$@"; }
-awxg agent-ws-ws-demo zsh
-```
-
-Bash completion for `awxg` first argument (container name):
-
-```sh
-_awxg_complete() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  if [[ "${COMP_CWORD}" -eq 1 ]]; then
-    COMPREPLY=($(compgen -W "$(docker ps --format '{{.Names}}')" -- "${cur}"))
-  fi
-}
-complete -F _awxg_complete awxg
-```
-
-Zsh completion for `awxg` first argument (container name):
-
-```sh
-_awxg_complete() {
-  local -a names
-  names=(${(f)"$(docker ps --format '{{.Names}}')"})
-  _arguments "1:container:(${names[*]})" "*::cmd:_command_names -e"
-}
-compdef _awxg_complete awxg
 ```
 
 ## Workspace storage
@@ -151,6 +164,8 @@ Default root:
 
 - `scripts/awl.bash`
 - `scripts/awl.zsh`
+- `scripts/awl_docker.bash`
+- `scripts/awl_docker.zsh`
 
 These wrappers call `agent-workspace-launcher` directly and expose `aw*` shortcuts.
 
