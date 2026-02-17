@@ -35,7 +35,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
-COPY --from=rust-builder /workspace/target/release/agent-workspace /usr/local/bin/agent-workspace
+COPY --from=rust-builder /workspace/target/release/agent-workspace-launcher /usr/local/bin/agent-workspace
 COPY VERSIONS.env /tmp/VERSIONS.env
 
 RUN git init -b main /opt/agent-kit \
