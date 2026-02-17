@@ -3,12 +3,14 @@ FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
 FROM rust:1-slim AS rust-builder
 WORKDIR /workspace
+ARG AWL_RELEASE_VERSION=""
 
 COPY Cargo.toml Cargo.lock rust-toolchain.toml rustfmt.toml ./
 COPY crates/agent-workspace/Cargo.toml crates/agent-workspace/Cargo.toml
 COPY crates/agent-workspace/src crates/agent-workspace/src
 
-RUN cargo build --release --locked -p agent-workspace
+RUN AWL_RELEASE_VERSION="$AWL_RELEASE_VERSION" \
+  cargo build --release --locked -p agent-workspace
 
 FROM ubuntu:24.04
 

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v1.1.3 - 2026-02-17
+
+### Upstream pins
+- agent-kit: 0ae695f18f672bf1f418c068a5e3124a26ecfb1a
+
+### Fixed
+- Align CLI `--version` / `-V` output with release tags for packaged binaries.
+- Inject release semver into Homebrew and Docker release build pipelines.
+
 ## v1.1.2 - 2026-02-17
 
 ### Upstream pins

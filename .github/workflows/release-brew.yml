@@ -106,9 +106,12 @@ jobs:
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
+          RELEASE_TAG: ${{ needs.precheck.outputs.release_tag }}
         run: |
           set -euo pipefail
-          cargo build --release -p agent-workspace --bin agent-workspace-launcher --target "${TARGET}"
+          release_version="${RELEASE_TAG#v}"
+          AWL_RELEASE_VERSION="${release_version}" \
+            cargo build --release -p agent-workspace --bin agent-workspace-launcher --target "${TARGET}"
 
       - name: Package Brew release archive
         shell: bash

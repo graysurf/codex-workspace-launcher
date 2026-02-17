@@ -4,6 +4,10 @@ use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 
 pub const PRIMARY_BIN_NAME: &str = "agent-workspace-launcher";
 pub const AWL_ALIAS_NAME: &str = "awl";
+pub const CLI_VERSION: &str = match option_env!("AWL_RELEASE_VERSION") {
+    Some(version) if !version.is_empty() => version,
+    _ => env!("CARGO_PKG_VERSION"),
+};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -88,6 +92,18 @@ impl CliCommand {
 }
 
 impl Cli {
+    fn command_with_invocation_name(invocation_name: Option<&str>) -> clap::Command {
+        let mut command = Self::command().version(CLI_VERSION);
+        if let Some(name) = invocation_name.filter(|name| !name.is_empty()) {
+            command = if name == AWL_ALIAS_NAME {
+                command.name(AWL_ALIAS_NAME)
+            } else {
+                command.name(PRIMARY_BIN_NAME)
+            };
+        }
+        command
+    }
+
     pub fn try_parse_from_with_invocation<I, T>(
         args: I,
         invocation_name: Option<&str>,
@@ -98,15 +114,7 @@ impl Cli {
     {
         let args_vec: Vec<OsString> = args.into_iter().map(Into::into).collect();
 
-        let mut command = Self::command();
-        if let Some(name) = invocation_name.filter(|name| !name.is_empty()) {
-            command = if name == AWL_ALIAS_NAME {
-                command.name(AWL_ALIAS_NAME)
-            } else {
-                command.name(PRIMARY_BIN_NAME)
-            };
-        }
-
+        let mut command = Self::command_with_invocation_name(invocation_name);
         let matches = command.clone().try_get_matches_from(args_vec)?;
         Self::from_arg_matches(&matches).map_err(|err| err.format(&mut command))
     }
@@ -116,7 +124,7 @@ impl Cli {
 mod tests {
     use clap::{CommandFactory, Parser};
 
-    use super::{AWL_ALIAS_NAME, Cli, CliCommand, PRIMARY_BIN_NAME};
+    use super::{AWL_ALIAS_NAME, CLI_VERSION, Cli, CliCommand, PRIMARY_BIN_NAME};
 
     #[test]
     fn help_lists_core_subcommands() {
@@ -177,5 +185,11 @@ mod tests {
             .map(|item| item.to_string_lossy().into_owned())
             .collect();
         assert_eq!(collected, vec!["--output", "json"]);
+    }
+
+    #[test]
+    fn command_version_uses_release_override_when_available() {
+        let cmd = Cli::command_with_invocation_name(None);
+        assert_eq!(cmd.get_version(), Some(CLI_VERSION));
     }
 }

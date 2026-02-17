@@ -240,6 +240,19 @@ jobs:
             echo "EOF"
           } >>"$GITHUB_OUTPUT"
 
+      - name: Resolve CLI release version
+        id: cli_version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.precheck.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          release_version=""
+          if [[ -n "${RELEASE_TAG}" ]]; then
+            release_version="${RELEASE_TAG#v}"
+          fi
+          echo "release_version=${release_version}" >>"$GITHUB_OUTPUT"
+
       - name: Build and push multi-arch images
         uses: docker/build-push-action@v6
         with:
@@ -249,5 +262,6 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             AGENT_KIT_REF=${{ steps.refs.outputs.agent_kit_ref }}
+            AWL_RELEASE_VERSION=${{ steps.cli_version.outputs.release_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
