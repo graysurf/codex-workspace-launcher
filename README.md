@@ -15,6 +15,17 @@ Host-native workspace lifecycle CLI for repository-focused development.
   - `gpg` (signing key checks)
   - `code` (VS Code tunnel)
 
+## Quickstart
+
+Create and use a workspace:
+
+```sh
+agent-workspace-launcher create OWNER/REPO
+agent-workspace-launcher ls
+agent-workspace-launcher exec <workspace>
+agent-workspace-launcher rm <workspace> --yes
+```
+
 ## Install
 
 ### Homebrew
@@ -42,7 +53,7 @@ agent-workspace-launcher --version
 awl --version
 ```
 
-### Docker Hub (DooD, no brew required)
+### Docker Hub
 
 This mode is Docker-outside-of-Docker (DooD): `awl_docker` runs inside a launcher container
 that talks to your host Docker daemon via `/var/run/docker.sock`.
@@ -135,17 +146,6 @@ Create `awl` alias (optional):
 ```sh
 ln -sf "$(pwd)/target/release/agent-workspace-launcher" "$HOME/.local/bin/awl"
 awl --help
-```
-
-## Quickstart
-
-Create and use a workspace:
-
-```sh
-agent-workspace-launcher create OWNER/REPO
-agent-workspace-launcher ls
-agent-workspace-launcher exec <workspace>
-agent-workspace-launcher rm <workspace> --yes
 ```
 
 ## Workspace storage
