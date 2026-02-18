@@ -145,6 +145,37 @@ fi
 
 mkdir -p "$(dirname "$dest")"
 
+clone_repo() {
+  if [[ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]]; then
+    askpass="/tmp/agent-workspace-git-askpass"
+    cat >"$askpass" <<EOS
+#!/usr/bin/env bash
+case "${1-}" in
+  *Username*) echo "x-access-token" ;;
+  *Password*) echo "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ;;
+  *) echo "" ;;
+esac
+EOS
+    chmod 700 "$askpass"
+    if [[ -n "$ref" ]]; then
+      GIT_TERMINAL_PROMPT=0 GIT_ASKPASS="$askpass" git clone "$repo_url" "$dest"
+    else
+      GIT_TERMINAL_PROMPT=0 GIT_ASKPASS="$askpass" git clone --branch main "$repo_url" "$dest"
+    fi
+    rm -f "$askpass"
+  else
+    if [[ -n "$ref" ]]; then
+      GIT_TERMINAL_PROMPT=0 git clone "$repo_url" "$dest"
+    else
+      GIT_TERMINAL_PROMPT=0 git clone --branch main "$repo_url" "$dest"
+    fi
+  fi
+}
+
+clone_repo
+
+git -C "$dest" config --unset-all remote.origin.fetch || true
+git -C "$dest" config --add remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 if [[ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]]; then
   askpass="/tmp/agent-workspace-git-askpass"
   cat >"$askpass" <<EOS
@@ -156,14 +187,17 @@ case "${1-}" in
 esac
 EOS
   chmod 700 "$askpass"
-  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS="$askpass" git clone "$repo_url" "$dest"
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS="$askpass" git -C "$dest" fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
   rm -f "$askpass"
 else
-  GIT_TERMINAL_PROMPT=0 git clone "$repo_url" "$dest"
+  GIT_TERMINAL_PROMPT=0 git -C "$dest" fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
 fi
 
 if [[ -n "$ref" ]]; then
   git -C "$dest" checkout "$ref"
+else
+  git -C "$dest" checkout -B main origin/main
+  git -C "$dest" reset --hard origin/main
 fi
 "#;
 
@@ -195,9 +229,25 @@ nils_formula="${AGENT_WORKSPACE_NILS_CLI_FORMULA:-graysurf/tap/nils-cli}"
 sync_main() {
   local target_dir="$1"
   local repo_url="$2"
-  rm -rf "$target_dir"
-  mkdir -p "$(dirname "$target_dir")"
-  GIT_TERMINAL_PROMPT=0 git clone --branch main --single-branch "$repo_url" "$target_dir"
+
+  if [[ -d "$target_dir/.git" ]]; then
+    if git -C "$target_dir" remote get-url origin >/dev/null 2>&1; then
+      git -C "$target_dir" remote set-url origin "$repo_url"
+    else
+      git -C "$target_dir" remote add origin "$repo_url"
+    fi
+  else
+    mkdir -p "$target_dir"
+    find "$target_dir" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    GIT_TERMINAL_PROMPT=0 git clone --branch main "$repo_url" "$target_dir"
+  fi
+
+  git -C "$target_dir" config --unset-all remote.origin.fetch || true
+  git -C "$target_dir" config --add remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  GIT_TERMINAL_PROMPT=0 git -C "$target_dir" fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+  git -C "$target_dir" checkout -B main origin/main
+  git -C "$target_dir" reset --hard origin/main
+  git -C "$target_dir" clean -fdx
 }
 
 echo "+ sync zsh-kit -> $zsh_dir (main)"
@@ -2123,9 +2173,9 @@ fn create_workspace_container(
         .arg("-e")
         .arg("CODEX_AUTH_FILE=/home/agent/.agents/auth.json")
         .arg("-e")
-        .arg("ZSH_KIT_DIR=~/.config/zsh")
+        .arg("ZSH_KIT_DIR=/home/agent/.config/zsh")
         .arg("-e")
-        .arg("AGENT_KIT_DIR=~/.agents")
+        .arg("AGENT_KIT_DIR=/home/agent/.agents")
         .arg("-e")
         .arg("ZDOTDIR=/home/agent/.config/zsh")
         .arg("-v")
