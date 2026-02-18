@@ -399,6 +399,8 @@ mod workspace_provider_tests {
             "#!/usr/bin/env bash\nset -euo pipefail\nif [[ \"${{1:-}}\" == \"ps\" ]]; then\n  printf '%s\\n' 'container-a' 'container-b'\n  exit 0\nfi\nexit 1"
         )
         .expect("write docker stub");
+        file.flush().expect("flush docker stub");
+        drop(file);
         fs::set_permissions(&docker_path, fs::Permissions::from_mode(0o755))
             .expect("chmod docker stub");
 
@@ -413,6 +415,10 @@ mod workspace_provider_tests {
             .list_workspaces(Runtime::Container)
             .expect("list container workspaces");
         assert_eq!(workspaces, vec!["container-a", "container-b"]);
+
+        unsafe {
+            std::env::set_var("PATH", existing_path);
+        }
     }
 }
 
