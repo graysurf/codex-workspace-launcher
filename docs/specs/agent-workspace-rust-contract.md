@@ -36,6 +36,10 @@ Container backend contract:
   2. `AGENT_ENV_IMAGE`
   3. `CODEX_ENV_IMAGE`
   4. `graysurf/agent-env:latest`
+- Container `create` post-bootstrap:
+  - force-sync `~/.config/zsh` from remote `main` (default repo: `graysurf/zsh-kit`)
+  - force-sync `~/.agents` from remote `main` (default repo: `graysurf/agent-kit`)
+  - update `nils-cli` via Homebrew (default formula: `graysurf/tap/nils-cli`)
 - `rm` supports `--keep-volumes` in container runtime.
 
 Host backend contract:

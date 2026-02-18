@@ -382,6 +382,12 @@ fn resolve_codex_profile_auth_files(profile: &str) -> Vec<String> {
     }
     dirs.push(String::from("/home/agent/codex_secrets"));
     dirs.push(String::from("/home/codex/codex_secrets"));
+    dirs.push(String::from(
+        "/home/agent/.config/zsh/scripts/_features/codex/secrets",
+    ));
+    dirs.push(String::from(
+        "/home/codex/.config/zsh/scripts/_features/codex/secrets",
+    ));
     dirs.push(String::from("/opt/zsh-kit/scripts/_features/codex/secrets"));
 
     let mut out: Vec<String> = Vec::new();

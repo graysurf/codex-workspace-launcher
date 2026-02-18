@@ -140,6 +140,55 @@ if [[ -n "$ref" ]]; then
 fi
 "#;
 
+const SYNC_BASELINE_SCRIPT: &str = r#"
+set -euo pipefail
+
+home="${HOME:-/home/agent}"
+
+expand_home() {
+  local raw="${1:-}"
+  if [[ "$raw" == "~" ]]; then
+    printf '%s\n' "$home"
+    return 0
+  fi
+  if [[ "$raw" == "~/"* ]]; then
+    printf '%s/%s\n' "${home%/}" "${raw#~/}"
+    return 0
+  fi
+  printf '%s\n' "$raw"
+}
+
+zsh_dir="$(expand_home "${ZSH_KIT_DIR:-$home/.config/zsh}")"
+agent_dir="$(expand_home "${AGENT_KIT_DIR:-$home/.agents}")"
+
+zsh_repo="${AGENT_WORKSPACE_ZSH_KIT_REPO:-https://github.com/graysurf/zsh-kit.git}"
+agent_repo="${AGENT_WORKSPACE_AGENT_KIT_REPO:-https://github.com/graysurf/agent-kit.git}"
+nils_formula="${AGENT_WORKSPACE_NILS_CLI_FORMULA:-graysurf/tap/nils-cli}"
+
+sync_main() {
+  local target_dir="$1"
+  local repo_url="$2"
+  rm -rf "$target_dir"
+  mkdir -p "$(dirname "$target_dir")"
+  GIT_TERMINAL_PROMPT=0 git clone --branch main --single-branch "$repo_url" "$target_dir"
+}
+
+echo "+ sync zsh-kit -> $zsh_dir (main)"
+sync_main "$zsh_dir" "$zsh_repo"
+
+echo "+ sync agent-kit -> $agent_dir (main)"
+sync_main "$agent_dir" "$agent_repo"
+
+if command -v brew >/dev/null 2>&1; then
+  echo "+ update nils-cli via Homebrew ($nils_formula)"
+  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew tap graysurf/tap >/dev/null 2>&1 \
+    || HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew tap graysurf/tap
+  if ! HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade "$nils_formula" >/dev/null 2>&1; then
+    HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install "$nils_formula"
+  fi
+fi
+"#;
+
 #[derive(Debug, Default, Clone)]
 struct ParsedCreate {
     show_help: bool,
@@ -307,6 +356,11 @@ fn run_create(args: &[OsString]) -> i32 {
 
     if let Err(err) = create_workspace_container(&container, &image, primary_spec.as_ref()) {
         eprintln!("error: {err}");
+        return EXIT_RUNTIME;
+    }
+
+    if let Err(err) = sync_container_baseline(&container) {
+        eprintln!("error: failed to sync container baseline: {err}");
         return EXIT_RUNTIME;
     }
 
@@ -1706,6 +1760,12 @@ fn create_workspace_container(
         .arg("AGENT_HOME=/home/agent/.agents")
         .arg("-e")
         .arg("CODEX_AUTH_FILE=/home/agent/.agents/auth.json")
+        .arg("-e")
+        .arg("ZSH_KIT_DIR=~/.config/zsh")
+        .arg("-e")
+        .arg("AGENT_KIT_DIR=~/.agents")
+        .arg("-e")
+        .arg("ZDOTDIR=/home/agent/.config/zsh")
         .arg("-v")
         .arg(format!("{vol_work}:/work"))
         .arg("-v")
@@ -1713,14 +1773,16 @@ fn create_workspace_container(
         .arg("-v")
         .arg(format!("{vol_codex}:/home/agent/.agents"))
         .arg("-w")
-        .arg("/work");
+        .arg("/work")
+        .arg("--entrypoint")
+        .arg("bash");
 
     if let Some(repo) = primary_repo {
         cmd.arg("--label")
             .arg(format!("agent-kit.repo={}", repo.owner_repo));
     }
 
-    cmd.arg(image).arg("sleep").arg("infinity");
+    cmd.arg(image).arg("-lc").arg("sleep infinity");
 
     let output = cmd
         .output()
@@ -1798,6 +1860,49 @@ fn clone_repo_into_container(
         } else {
             Err(stderr)
         }
+    }
+}
+
+fn sync_container_baseline(container: &str) -> Result<(), String> {
+    let mut cmd = Command::new("docker");
+    cmd.arg("exec");
+
+    for env_name in [
+        "AGENT_WORKSPACE_ZSH_KIT_REPO",
+        "AGENT_WORKSPACE_AGENT_KIT_REPO",
+        "AGENT_WORKSPACE_NILS_CLI_FORMULA",
+    ] {
+        if let Ok(value) = std::env::var(env_name)
+            && !value.trim().is_empty()
+        {
+            cmd.arg("-e").arg(format!("{env_name}={value}"));
+        }
+    }
+
+    cmd.arg(container)
+        .arg("bash")
+        .arg("-lc")
+        .arg(SYNC_BASELINE_SCRIPT);
+
+    let output = cmd
+        .output()
+        .map_err(|err| format!("failed to sync baseline in container: {err}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if !stderr.is_empty() {
+            return Err(stderr);
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !stdout.is_empty() {
+            return Err(stdout);
+        }
+        Err(format!(
+            "baseline sync failed (exit {})",
+            output.status.code().unwrap_or(EXIT_RUNTIME)
+        ))
     }
 }
 

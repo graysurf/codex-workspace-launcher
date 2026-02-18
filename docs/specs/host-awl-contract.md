@@ -50,6 +50,9 @@ Both names must execute the same Rust implementation and behavior.
 - `AGENT_WORKSPACE_GPG_KEY` (default GPG key)
 - `AGENT_ENV_IMAGE` (container runtime default image for `create`)
 - `CODEX_ENV_IMAGE` (compat image fallback for `create`)
+- `AGENT_WORKSPACE_ZSH_KIT_REPO` (container `create` sync source for `~/.config/zsh`)
+- `AGENT_WORKSPACE_AGENT_KIT_REPO` (container `create` sync source for `~/.agents`)
+- `AGENT_WORKSPACE_NILS_CLI_FORMULA` (container `create` nils-cli update formula)
 - `CODEX_SECRET_DIR` (Codex compatibility)
 - `CODEX_AUTH_FILE` (Codex compatibility)
 

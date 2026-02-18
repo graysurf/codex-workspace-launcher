@@ -61,6 +61,7 @@ Default root:
 ## Command notes
 
 - `create`: creates a workspace in the selected runtime and optionally clones repo(s).
+- `create` (container runtime): after container creation, force-syncs `~/.config/zsh` and `~/.agents` to remote `main` and updates `nils-cli`.
 - `exec`: runs a command or shell in the selected runtime workspace.
 - `reset`: git reset flows (`repo`, `work-repos`, `opt-repos`, `private-repo`) in the selected runtime.
 - `auth github`: stores resolved token under workspace auth directory.
@@ -76,6 +77,9 @@ Default root:
 | `AGENT_WORKSPACE_PREFIX` | `agent-ws` | Prefix normalization for workspace names |
 | `AGENT_WORKSPACE_AUTH` | `auto` | GitHub auth token policy: `auto\|gh\|env\|none` |
 | `AGENT_WORKSPACE_GPG_KEY` | (empty) | Default key for `auth gpg` |
+| `AGENT_WORKSPACE_ZSH_KIT_REPO` | `https://github.com/graysurf/zsh-kit.git` | Source repo used to force-sync `~/.config/zsh` on container `create` |
+| `AGENT_WORKSPACE_AGENT_KIT_REPO` | `https://github.com/graysurf/agent-kit.git` | Source repo used to force-sync `~/.agents` on container `create` |
+| `AGENT_WORKSPACE_NILS_CLI_FORMULA` | `graysurf/tap/nils-cli` | Homebrew formula used to update `nils-cli` on container `create` |
 | `CODEX_SECRET_DIR` | (empty) | Codex profile directory (compatibility name) |
 | `CODEX_AUTH_FILE` | `~/.codex/auth.json` | Codex auth file path (compatibility name) |
 
