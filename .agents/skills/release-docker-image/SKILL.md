@@ -1,6 +1,6 @@
 ---
 name: release-docker-image
-description: Release agent-workspace-launcher container images to Docker Hub and GHCR using AWL_* env contracts.
+description: Release agent-workspace-launcher container images in CI (default) with local fallback.
 ---
 
 # Release Docker Image
@@ -9,31 +9,36 @@ description: Release agent-workspace-launcher container images to Docker Hub and
 
 Prereqs:
 
-- Run in repo root (git work tree).
+- Run in repo root (git work tree) for default behavior.
+- `gh` authenticated (`gh auth status`) with access to this repository.
+- GitHub workflow `.github/workflows/release-docker.yml` available.
+- Repo secrets for Docker Hub publish:
+  - `DOCKERHUB_USERNAME`
+  - `DOCKERHUB_TOKEN`
+- GHCR publish uses GitHub Actions `GITHUB_TOKEN` with `packages: write` (already defined in workflow permissions).
+- `VERSIONS.env` must contain `AGENT_KIT_REF`.
+
+Local fallback prereqs (only when forcing local publish):
+
 - `docker` with `buildx` enabled.
-- `git` available on `PATH`.
-- Docker Hub + GHCR credentials provided by `AWL_DOCKER_RELEASE_*` env vars.
-- `VERSIONS.env` must contain `AGENT_KIT_REF` (or override with `AWL_DOCKER_RELEASE_AGENT_KIT_REF`).
+- Docker Hub + GHCR credentials via `AWL_DOCKER_RELEASE_*` env vars.
 
 Inputs:
 
-- CLI:
-  - `--version <vX.Y.Z>` (optional but required when `push_version_tag` is enabled)
-  - `--ref <git-ref>` (default: `HEAD`)
-  - `--dry-run` (render actions without login/build/push)
-- Environment (`.env` supported):
-  - `AWL_DOCKER_RELEASE_DOCKERHUB_USERNAME`, `AWL_DOCKER_RELEASE_DOCKERHUB_TOKEN`
-  - `AWL_DOCKER_RELEASE_GHCR_USERNAME`, `AWL_DOCKER_RELEASE_GHCR_TOKEN`
-  - `AWL_DOCKER_RELEASE_DOCKERHUB_IMAGE`, `AWL_DOCKER_RELEASE_GHCR_IMAGE`
-  - `AWL_DOCKER_RELEASE_PUSH_LATEST`, `AWL_DOCKER_RELEASE_PUSH_SHA`, `AWL_DOCKER_RELEASE_PUSH_VERSION`
-  - `AWL_DOCKER_RELEASE_PLATFORMS`
-  - `AWL_DOCKER_RELEASE_AGENT_KIT_REF`
+- CI entrypoint CLI:
+  - `--version <vX.Y.Z>` (recommended)
+  - `--input-ref <git-ref>`
+  - `--workflow-ref <git-ref>` (which ref to load workflow file from)
+  - `--repo <owner/name>`
+  - `--publish-version-tag|--no-publish-version-tag`
+  - `--no-wait`
+- Local fallback env/CLI: same contract as `release-docker-image.sh` (`AWL_DOCKER_RELEASE_*`).
 
 Outputs:
 
+- CI workflow dispatch + optional wait for completion (`release-docker.yml`).
 - Multi-arch image publish to Docker Hub + GHCR (linux/amd64, linux/arm64 by default).
-- Pushed tags include `latest`, `sha-<short_sha>`, and optional `vX.Y.Z`.
-- Clear failure output listing missing env/credentials or invalid conditions.
+- Tags include `latest`, `sha-<short_sha>`, and optional `vX.Y.Z`.
 
 Exit codes:
 
@@ -43,22 +48,27 @@ Exit codes:
 
 Failure modes:
 
-- Missing required credentials for enabled targets.
-- Invalid `--version` format or version-tag policy mismatch.
-- Missing/invalid `AGENT_KIT_REF`.
-- Docker login/buildx/push failure.
+- Missing/invalid release tag/ref or publish policy mismatch.
+- Missing repo secrets (Docker Hub publish disabled/failed).
+- GHCR permission issues (`packages: write` missing or token scope mismatch).
+- Workflow dispatch/watch failure.
+- Docker login/buildx/push failure (local fallback mode).
 
 ## Scripts (only entrypoints)
 
-- `<PROJECT_ROOT>/.agents/skills/release-docker-image/scripts/release-docker-image.sh`
+- CI-first entrypoint:
+  - `<PROJECT_ROOT>/.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh`
+- Local fallback entrypoint:
+  - `<PROJECT_ROOT>/.agents/skills/release-docker-image/scripts/release-docker-image.sh`
 
 ## Workflow
 
-1. Set publish env vars in `.env` (use `AWL_DOCKER_RELEASE_*`).
-2. Run:
+1. CI-first release (recommended):
+   - `.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh --version vX.Y.Z`
+2. Non-blocking dispatch only (do not wait):
+   - `.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh --version vX.Y.Z --no-wait`
+3. Local fallback publish (only when CI path is unavailable):
    - `.agents/skills/release-docker-image/scripts/release-docker-image.sh --version vX.Y.Z`
-3. For preflight only:
-   - `.agents/skills/release-docker-image/scripts/release-docker-image.sh --version vX.Y.Z --dry-run`
 4. Verify pushed manifests:
    - `docker buildx imagetools inspect graysurf/agent-workspace-launcher:vX.Y.Z`
    - `docker buildx imagetools inspect ghcr.io/graysurf/agent-workspace-launcher:vX.Y.Z`

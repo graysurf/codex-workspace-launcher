@@ -109,6 +109,12 @@ HOMEBREW_NO_AUTO_UPDATE=1 brew test agent-workspace-launcher
 If you also publish compatibility container artifacts, run Docker-specific verification separately. That path is optional and must not gate CLI release readiness.
 
 ```sh
+.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh --version vX.Y.Z
+```
+
+Local fallback path:
+
+```sh
 .agents/skills/release-docker-image/scripts/release-docker-image.sh --version vX.Y.Z --dry-run
 .agents/skills/release-docker-image/scripts/release-docker-image.sh --version vX.Y.Z
 ```

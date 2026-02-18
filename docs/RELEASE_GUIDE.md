@@ -139,13 +139,27 @@ tar -tzf "$archive" | rg '^agent-workspace-launcher-.*-x86_64-apple-darwin/compl
 
 Container-image publishing remains a separate compatibility channel, and must not gate CLI archive release correctness.
 
-Use the project skill entrypoint:
+Preferred path (CI):
+
+```sh
+.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh --version vX.Y.Z
+```
+
+This dispatches `.github/workflows/release-docker.yml` and waits for completion by default.
+
+Optional non-blocking dispatch:
+
+```sh
+.agents/skills/release-docker-image/scripts/release-docker-image-ci.sh --version vX.Y.Z --no-wait
+```
+
+Local fallback path (only when CI dispatch is unavailable):
 
 ```sh
 .agents/skills/release-docker-image/scripts/release-docker-image.sh --version vX.Y.Z
 ```
 
-Supported env contract (can be loaded from `.env`):
+Local fallback env contract (can be loaded from `.env`):
 
 - `AWL_DOCKER_RELEASE_DOCKERHUB_USERNAME`
 - `AWL_DOCKER_RELEASE_DOCKERHUB_TOKEN`
