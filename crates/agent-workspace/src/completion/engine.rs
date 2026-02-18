@@ -1,7 +1,8 @@
 use crate::runtime::Runtime;
 
 use super::candidates::{
-    Candidate, finalize, push_described_values, push_global_options, push_values, with_prefix,
+    Candidate, finalize, push_described_values, push_global_options, push_values,
+    with_described_prefix, with_prefix,
 };
 use super::protocol::CompletionRequest;
 
@@ -73,7 +74,17 @@ fn complete_create(current: &str, args_before: &[String]) -> Vec<Candidate> {
         current,
         &["--name", "--image", "--ref", "--private-repo"],
     ) {
-        return value_suggestions(&option, inline, &[]);
+        return match option.as_str() {
+            "--ref" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("origin/main", "Default remote branch"),
+                    ("origin/master", "Legacy default branch"),
+                ],
+            ),
+            _ => value_suggestions(&option, inline, &[]),
+        };
     }
 
     let mut out: Vec<Candidate> = Vec::new();
@@ -97,7 +108,7 @@ fn complete_create(current: &str, args_before: &[String]) -> Vec<Candidate> {
 
 fn complete_ls(current: &str, args_before: &[String]) -> Vec<Candidate> {
     if let Some((option, inline)) = value_option(args_before, current, &["--output"]) {
-        return value_suggestions(&option, inline, &["json"]);
+        return value_suggestions_described(&option, inline, &[("json", "JSON output format")]);
     }
 
     let mut out: Vec<Candidate> = Vec::new();
@@ -160,7 +171,16 @@ fn complete_exec<P: WorkspaceProvider>(
     workspace_ctx: &mut WorkspaceContext<'_, P>,
 ) -> Vec<Candidate> {
     if let Some((option, inline)) = value_option(args_before, current, &["--user"]) {
-        return value_suggestions(&option, inline, &[]);
+        return value_suggestions_described(
+            &option,
+            inline,
+            &[
+                ("0", "UID 0 (root)"),
+                ("root", "Root user"),
+                ("agent", "Default agent user"),
+                ("codex", "Alternate codex user"),
+            ],
+        );
     }
 
     let mut workspace_seen = false;
@@ -204,7 +224,9 @@ fn complete_tunnel<P: WorkspaceProvider>(
 ) -> Vec<Candidate> {
     if let Some((option, inline)) = value_option(args_before, current, &["--name", "--output"]) {
         return match option.as_str() {
-            "--output" => value_suggestions(&option, inline, &["json"]),
+            "--output" => {
+                value_suggestions_described(&option, inline, &[("json", "JSON output format")])
+            }
             _ => value_suggestions(&option, inline, &[]),
         };
     }
@@ -258,6 +280,22 @@ fn complete_auth<P: WorkspaceProvider>(
             "--container" | "--workspace" => {
                 workspace_ctx.workspace_candidates(Some((&option, inline)))
             }
+            "--host" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("github.com", "GitHub.com"),
+                    ("ghe.local", "Example GitHub Enterprise host"),
+                ],
+            ),
+            "--profile" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("default", "Default Codex profile"),
+                    ("work", "Example work profile"),
+                ],
+            ),
             _ => value_suggestions(&option, inline, &[]),
         };
     }
@@ -443,7 +481,14 @@ fn complete_reset_repo<P: WorkspaceProvider>(
     workspace_ctx: &mut WorkspaceContext<'_, P>,
 ) -> Vec<Candidate> {
     if let Some((option, inline)) = value_option(args_before, current, &["--ref"]) {
-        return value_suggestions(&option, inline, &[]);
+        return value_suggestions_described(
+            &option,
+            inline,
+            &[
+                ("origin/main", "Default remote branch"),
+                ("origin/master", "Legacy default branch"),
+            ],
+        );
     }
 
     let workspace_seen = first_positional(args_before).is_some();
@@ -476,7 +521,35 @@ fn complete_reset_work_repos<P: WorkspaceProvider>(
     if let Some((option, inline)) =
         value_option(args_before, current, &["--root", "--depth", "--ref"])
     {
-        return value_suggestions(&option, inline, &[]);
+        return match option.as_str() {
+            "--root" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("/work", "Default work repositories root"),
+                    ("/opt", "Optional repositories root"),
+                ],
+            ),
+            "--depth" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("1", "Only immediate repositories"),
+                    ("2", "Shallow tree scan"),
+                    ("3", "Default scan depth"),
+                    ("5", "Deeper scan depth"),
+                ],
+            ),
+            "--ref" => value_suggestions_described(
+                &option,
+                inline,
+                &[
+                    ("origin/main", "Default remote branch"),
+                    ("origin/master", "Legacy default branch"),
+                ],
+            ),
+            _ => value_suggestions(&option, inline, &[]),
+        };
     }
 
     let workspace_seen =
@@ -511,7 +584,14 @@ fn complete_reset_simple<P: WorkspaceProvider>(
     with_ref: bool,
 ) -> Vec<Candidate> {
     if with_ref && let Some((option, inline)) = value_option(args_before, current, &["--ref"]) {
-        return value_suggestions(&option, inline, &[]);
+        return value_suggestions_described(
+            &option,
+            inline,
+            &[
+                ("origin/main", "Default remote branch"),
+                ("origin/master", "Legacy default branch"),
+            ],
+        );
     }
 
     let workspace_seen = first_positional(args_before).is_some();
@@ -597,16 +677,22 @@ fn first_positional_skipping_options<'a>(
 
 fn complete_runtime_value(words_before: &[String], current: &str) -> Option<Vec<Candidate>> {
     if let Some(runtime_prefix) = current.strip_prefix("--runtime=") {
-        return Some(with_prefix(
+        return Some(with_described_prefix(
             "--runtime=",
-            &filter_values(&["container", "host"], runtime_prefix),
+            &filter_described_values(
+                &[
+                    ("container", "Use container runtime"),
+                    ("host", "Use host runtime"),
+                ],
+                runtime_prefix,
+            ),
         ));
     }
 
     if words_before.last().is_some_and(|last| last == "--runtime") {
         return Some(vec![
-            Candidate::value("container"),
-            Candidate::value("host"),
+            Candidate::described("container", "Use container runtime"),
+            Candidate::described("host", "Use host runtime"),
         ]);
     }
 
@@ -691,11 +777,28 @@ fn value_suggestions(option: &str, inline: bool, values: &[&str]) -> Vec<Candida
     out
 }
 
-fn filter_values<'a>(values: &'a [&'a str], prefix: &str) -> Vec<&'a str> {
+fn value_suggestions_described(
+    option: &str,
+    inline: bool,
+    values: &[(&str, &str)],
+) -> Vec<Candidate> {
+    if inline {
+        return with_described_prefix(&format!("{option}="), values);
+    }
+
+    let mut out: Vec<Candidate> = Vec::new();
+    push_described_values(&mut out, values);
+    out
+}
+
+fn filter_described_values<'a>(
+    values: &'a [(&'a str, &'a str)],
+    prefix: &str,
+) -> Vec<(&'a str, &'a str)> {
     values
         .iter()
         .copied()
-        .filter(|value| value.starts_with(prefix))
+        .filter(|(value, _)| value.starts_with(prefix))
         .collect()
 }
 

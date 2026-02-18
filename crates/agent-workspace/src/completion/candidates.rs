@@ -54,6 +54,17 @@ pub(crate) fn with_prefix(prefix: &str, values: &[&str]) -> Vec<Candidate> {
     out
 }
 
+pub(crate) fn with_described_prefix(prefix: &str, values: &[(&str, &str)]) -> Vec<Candidate> {
+    let mut out: Vec<Candidate> = Vec::with_capacity(values.len());
+    for (value, description) in values {
+        out.push(Candidate::described(
+            format!("{prefix}{value}"),
+            *description,
+        ));
+    }
+    out
+}
+
 pub(crate) fn finalize(candidates: Vec<Candidate>, prefix: &str) -> Vec<Candidate> {
     let mut deduped: BTreeMap<String, Option<String>> = BTreeMap::new();
 

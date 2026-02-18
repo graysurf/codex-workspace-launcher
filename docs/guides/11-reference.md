@@ -51,6 +51,7 @@ Container-only option references:
   - `agent-workspace-launcher __complete --shell <bash|zsh> --cword <index> --word <arg0> --word <arg1> ...`
   - Optional: `--format describe` to emit `candidate<TAB>description` lines.
 - Adapters forward shell state to this command and consume newline-delimited candidates.
+- Candidate coverage includes subcommands, long/short flags, and common option values.
 - Runtime-aware workspace candidates apply to `auth`, `rm`, `exec`, `reset`, and `tunnel`.
 - Rollback toggle:
   - `export AGENT_WORKSPACE_COMPLETION_MODE=legacy`

@@ -270,6 +270,47 @@ mod engine_tests {
     }
 
     #[test]
+    fn runtime_value_completion_is_described() {
+        let result = complete(
+            &request(&["agent-workspace-launcher", "--runtime", ""], 2),
+            &provider(),
+        );
+        let rendered = render(
+            CompletionShell::Zsh,
+            CompletionOutputFormat::Describe,
+            &result.candidates,
+        );
+
+        assert!(rendered.contains("container\tUse container runtime"));
+        assert!(rendered.contains("host\tUse host runtime"));
+    }
+
+    #[test]
+    fn ls_output_value_completion_supports_plain_and_inline() {
+        let plain = complete(
+            &request(&["agent-workspace-launcher", "ls", "--output", ""], 3),
+            &provider(),
+        );
+        let plain_values: Vec<String> = plain
+            .candidates
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect();
+        assert!(plain_values.iter().any(|value| value == "json"));
+
+        let inline = complete(
+            &request(&["agent-workspace-launcher", "ls", "--output="], 2),
+            &provider(),
+        );
+        let inline_values: Vec<String> = inline
+            .candidates
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect();
+        assert!(inline_values.iter().any(|value| value == "--output=json"));
+    }
+
+    #[test]
     fn rm_workspace_candidates_follow_runtime() {
         let host_request = request(
             &["agent-workspace-launcher", "--runtime", "host", "rm", ""],
